@@ -1,0 +1,17 @@
+html, body {
+    height: 100%;
+    background: black;
+}
+
+#canvas {
+    width: 100%;
+    aspect-ratio: 2;
+    background: transparent;
+}
+
+#fps {
+    position: absolute;
+    top: 40px;
+    right: 40px;
+    color: white;
+}

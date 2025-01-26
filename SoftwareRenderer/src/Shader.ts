@@ -1,0 +1,1 @@
+export type Shader =  (output: Float64Array, ...vals: any[]) => void
