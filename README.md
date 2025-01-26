@@ -10,3 +10,6 @@ It is my attempt at replicating (at least part of) the 3d graphics pipeline pure
   
 ## Future
 This project is not complete, I want to write a shader to get some very basic shading/lighting, load some interesting models and clean up the code.
+
+## Images
+<img width="1709" alt="Screenshot 2025-01-26 at 11 15 57 AM" src="https://github.com/user-attachments/assets/52ca7f14-9235-47c6-9105-8bde3b624736" />
