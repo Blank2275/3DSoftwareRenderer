@@ -1,3 +1,5 @@
+import {Vector} from "./Vector.ts";
+
 export class Matrix {
     matrix: number[][];
 
@@ -23,27 +25,27 @@ export class Matrix {
         return new Matrix(res);
     }
 
-    multiplyVector(vector: number[]) {
-        vector = [...vector, 1]
-        let xPrime: number = vector[0] * this.matrix[0][0] +
-                             vector[1] * this.matrix[1][0] +
-                             vector[2] * this.matrix[2][0] +
-                             vector[3] * this.matrix[3][0];
+    multiplyVector(vector: Vector): Vector {
+        const vec4 = [...vector, 1]
+        let xPrime: number = vec4[0] * this.matrix[0][0] +
+            vec4[1] * this.matrix[1][0] +
+            vec4[2] * this.matrix[2][0] +
+            vec4[3] * this.matrix[3][0];
 
         let yPrime: number = vector[0] * this.matrix[0][1] +
-            vector[1] * this.matrix[1][1] +
-            vector[2] * this.matrix[2][1] +
-            vector[3] * this.matrix[3][1];
+            vec4[1] * this.matrix[1][1] +
+            vec4[2] * this.matrix[2][1] +
+            vec4[3] * this.matrix[3][1];
 
         let zPrime: number = vector[0] * this.matrix[0][2] +
-            vector[1] * this.matrix[1][2] +
-            vector[2] * this.matrix[2][2] +
-            vector[3] * this.matrix[3][2];
+            vec4[1] * this.matrix[1][2] +
+            vec4[2] * this.matrix[2][2] +
+            vec4[3] * this.matrix[3][2];
 
         let wPrime: number = vector[0] * this.matrix[0][3] +
-            vector[1] * this.matrix[1][3] +
-            vector[2] * this.matrix[2][3] +
-            vector[3] * this.matrix[3][3];
+            vec4[1] * this.matrix[1][3] +
+            vec4[2] * this.matrix[2][3] +
+            vec4[3] * this.matrix[3][3];
 
         if (wPrime != 1) {
             xPrime /= wPrime;
@@ -51,11 +53,11 @@ export class Matrix {
             zPrime /= wPrime;
         }
 
-        return [xPrime, yPrime, zPrime, wPrime]
+        return [xPrime, yPrime, zPrime]
     }
 
-    multiplyVectors(vectors: number[][]): number[][] {
-        let transformedVectors: number[][] = []
+    multiplyVectors(vectors: Vector[]): Vector[] {
+        let transformedVectors: Vector[] = []
         for (let vector of vectors) {
             transformedVectors.push(this.multiplyVector(vector))
         }

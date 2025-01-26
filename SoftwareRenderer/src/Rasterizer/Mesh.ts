@@ -1,15 +1,16 @@
-import {Matrices} from "./Matrix.ts";
+import {Matrices} from "../Math/Matrix.ts";
+import {Vector} from "../Math/Vector.ts";
 
 export class Mesh {
-    originalVertices: number[][]
-    vertices: number[][]
+    originalVertices: Vector[]
+    vertices: Vector[]
     faces: number[][]
     vertexAttributes: Float64Array[][]
 
     rotation: number[]
     position: number[]
 
-    constructor(vertices: number[][], faces: number[][], vertexAttributes: Float64Array[][]) {
+    constructor(vertices: Vector[], faces: number[][], vertexAttributes: Float64Array[][]) {
         this.originalVertices = [...vertices];
         this.vertices = [...vertices];
         this.faces = faces

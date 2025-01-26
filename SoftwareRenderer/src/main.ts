@@ -1,9 +1,8 @@
 import './style.css'
 import {Buffer} from "./Buffer.ts";
-import {Shader} from "./Shader.ts";
 import {Rasterizer} from "./Rasterizer/Rasterizer.ts";
-import {Matrices} from "./Rasterizer/Matrix.ts";
 import {Mesh} from "./Rasterizer/Mesh.ts";
+import {Vector} from "./Math/Vector.ts";
 
 function testShader(output: Float64Array, color: Float64Array) {
     let r = color[0];
@@ -14,21 +13,6 @@ function testShader(output: Float64Array, color: Float64Array) {
     output[1] = g
     output[2] = b
     output[3] = 1
-}
-
-function applyShaderGlobal(buffer: Buffer, shader: Shader) {
-    const input = new Float64Array(4)
-
-    let t = new Date().getTime() / 1000
-    for (let x = 0; x < buffer.width; x++) {
-        for (let y = 0; y < buffer.height; y++) {
-            let normalizedX = x / buffer.width;
-            let normalizedY = y / buffer.height;
-
-            shader(input, normalizedX, normalizedY, t);
-            buffer.setElement(x, y, input);
-        }
-    }
 }
 
 function renderBuffer(buffer: Buffer, context: CanvasRenderingContext2D) {
@@ -64,7 +48,7 @@ window.onload = function () {
             this.renderBuffer.clear();
             ctx.clearRect(0, 0, width, height)
 
-            const vertices: number[][] = [
+            const vertices: Vector[] = [
                 [1, -1, 0],
                 [-1, -1, 0],
                 [0, 1, 0],
