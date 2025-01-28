@@ -5,7 +5,7 @@ import {Mesh} from "./Rasterizer/Mesh.ts";
 import {cross, dot, norm, sub, Vector} from "./Math/Vector.ts";
 import {Camera} from "./Rasterizer/Camera.ts";
 
-
+// sets color to the first face attribute and applies some simple lighting from above and to the right
 function testShader(output: Float64Array, vertices: Vector[], faceAttriubutes: Float64Array[], _vertexAttributes: Float64Array[]) {
     const vecA: Vector = vertices[0];
     const vecB: Vector = vertices[1];
@@ -15,7 +15,7 @@ function testShader(output: Float64Array, vertices: Vector[], faceAttriubutes: F
     const AC: Vector = sub(vecA, vecC);
     const normal = norm(cross(AB, AC));
 
-    const lightDirection: Vector = [0, -1, 0];
+    const lightDirection: Vector = [1, 1, 0];
     const directionalIntensity = 0.8;
     const ambient = 0.4;
     const directional: number = Math.max(dot(normal, lightDirection), 0) * directionalIntensity;
@@ -37,6 +37,7 @@ function testShader(output: Float64Array, vertices: Vector[], faceAttriubutes: F
     output[3] = 1
 }
 
+// renders a buffer with dims = 4 to a canvas context
 function renderBuffer(buffer: Buffer, context: CanvasRenderingContext2D) {
     const imageData = context.getImageData(0, 0, buffer.width, buffer.height);
 
@@ -67,7 +68,7 @@ window.onload = function () {
         lastRunTime: new Date().getTime(),
         fpsDisplay: document.getElementById("fps"),
         rasterizer: new Rasterizer(width, height),
-        camera: new Camera(70, width / height, 0.1, 1000),
+        camera: new Camera(70, 0.1, 1000),
         renderBuffer: new Buffer(width, height, 4),
         position: [0, 0, 0],
         rotation: 0,
@@ -77,6 +78,7 @@ window.onload = function () {
             ctx.clearRect(0, 0, width, height)
             this.rasterizer.clear()
 
+            // defines vertices and faces of our cube
             const vertices: Vector[] = [
                 [-1, -1, -1],
                 [1, -1, -1],
@@ -103,7 +105,7 @@ window.onload = function () {
                 [4, 6, 7],
             ]
 
-            let vertexAttriubtes: Float64Array[][] = [
+            let vertexAttriubtes: Float64Array[][] = [ // I haven't defined any for the cube
                 // [new Float64Array([1, 0, 0])],
                 // [new Float64Array([0, 1, 0])],
                 // [new Float64Array([0, 0, 1])],
@@ -141,6 +143,7 @@ window.onload = function () {
             this.rasterizer.render(mesh, this.camera, testShader)
             renderBuffer(this.rasterizer.renderBuffer, this.ctx);
 
+            // framerate calculation and display code
             if (!this.fpsDisplay) return;
 
             const now = new Date().getTime();
@@ -149,12 +152,13 @@ window.onload = function () {
             this.fpsDisplay.innerHTML = `FPS: ${Math.round(fps)}`
             this.lastRunTime = now;
 
+            // movement
             if (keys["ArrowLeft"]) {
-                this.rotation += this.rotationSpeed;
+                this.rotation -= this.rotationSpeed;
             }
 
             if (keys["ArrowRight"]) {
-                this.rotation -= this.rotationSpeed;
+                this.rotation += this.rotationSpeed;
             }
 
             if (keys["KeyW"] || keys["ArrowUp"]) {
@@ -186,6 +190,7 @@ window.onload = function () {
 
     loopContext.animate()
 
+    // movement
     document.body.addEventListener("keydown", (e) => {
         keys[e.code] = true;
     })

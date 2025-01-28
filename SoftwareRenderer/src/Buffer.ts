@@ -43,6 +43,9 @@ export class Buffer {
         return res;
     }
 
+    /*
+    Clears all elements of the buffer to a value
+     */
     clear(to: number) {
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {

@@ -23,15 +23,16 @@ export class Rasterizer {
     * does not write to the screen, only the buffer being passed in
      */
     render(mesh: Mesh, camera: Camera, shader: Shader) {
-        let vertices = mesh.vertices
-        const faces = mesh.faces
-        const vertexAttributes = mesh.vertexAttributes
-        const meshFaceAttributes: Float64Array[][] = mesh.faceAttributes
+        let vertices = camera.transformVertices(mesh.vertices);
+        const faces = mesh.faces;
+        const vertexAttributes = mesh.vertexAttributes;
+        const meshFaceAttributes: Float64Array[][] = mesh.faceAttributes;
+        const aspectRatio = this.width / this.height;
 
         // converts world to screen coordinates
         const worldToScreen = (vertex: Vector): Vector => {
             let res: Vector = [0, 0, 0];
-            res[0] = (vertex[0] + 1) / 2 * this.width;
+            res[0] = (vertex[0] + 1) / 2 * this.width / aspectRatio;
             res[1] = (vertex[1] + 1) / 2 * this.height;
 
             return res;
@@ -40,13 +41,12 @@ export class Rasterizer {
         // converts screen to world coordinates
         const screenToWorld = (vertex: Vector): Vector => {
             let res: Vector = [0, 0, 0];
-            res[0] = vertex[0] / this.width * 2 - 1;
+            res[0] = vertex[0] / this.width * 2 * aspectRatio - 1;
             res[1] = vertex[1] / this.height * 2 - 1;
 
             return res
         }
 
-        vertices = camera.transformVertices(vertices);
         const transformedVertices = camera.projectVertices(vertices);
 
         for (let i in faces) {
@@ -64,13 +64,10 @@ export class Rasterizer {
             const vertexB = transformedVertices[face[1]];
             const vertexC = transformedVertices[face[2]];
 
-            // used for interpolating z per pixel, pre computed out here for performance
-            let inverseZA = worldA[2];
-            let inverseZB = worldB[2];
-            let inverseZC = worldC[2];
-            inverseZA = 1 / inverseZA;
-            inverseZB = 1 / inverseZB;
-            inverseZC = 1 / inverseZC;
+            // used for interpolating z per pixel, pre-computed out here for performance
+            let inverseZA = 1 / worldA[2];
+            let inverseZB = 1 / worldB[2];
+            let inverseZC = 1 / worldC[2];
 
             // the screen position of vertices
             const screenVertexA = worldToScreen(vertexA);
@@ -79,6 +76,7 @@ export class Rasterizer {
 
             const [tl, br] = this.calculateBoundingBox(screenVertexA, screenVertexB, screenVertexC);
 
+            // the area of the projected triangle, useful for vertex attributes and z
             const area = Math.abs(this.edgeFunction(vertexA, vertexB, vertexC));
 
             let color = new Float64Array(4); // also created here for performance
@@ -91,6 +89,7 @@ export class Rasterizer {
                 vertexAttributes[face[2]],
             ];
 
+            // create empty Float64Arrays to store pixel vertex attributes without creating this class per pixel for performance
             if (vertexAttributes.length) {
                 let vas = vertexAttributes[face[0]];
                 for (let va in vas) {
@@ -99,11 +98,12 @@ export class Rasterizer {
                 }
             }
 
+            // divide each vertex attribute by that vertices z for perspective correct interpolation
             for (let i in face) {
-                let vertex = transformedVertices[face[i]];
+                let vertex = vertices[face[i]];
                 let vas = vertexAttributes[face[i]];
 
-                if (!vas) continue
+                if (!vas) continue // vas may be undefined
 
                 for (let va of vas) {
                     for (let element in va) va[element] /= vertex[2]; // for perspective correction
@@ -114,34 +114,36 @@ export class Rasterizer {
             tl[1] = Math.max(tl[1], 0);
             br[0] = Math.min(br[0], this.width);
             br[1] = Math.min(br[1], this.height);
+
             for (let y = tl[1]; y < br[1]; y++) {
                 for (let x = tl[0]; x < br[0]; x++) {
                     const worldCoords: Vector = screenToWorld([x, y, 0])
                     if (!this.triangleContains(worldCoords, vertexA, vertexB, vertexC)) continue;
                     if (x < 0 || y < 0 || x >= this.width || y >= this.height) continue;
 
+                    // each of these is the area between two of the vertices and the current pixel, it is used as
+                    // a measure of how much a given vertex effects the z or a vertex attribute
                     let wa = this.edgeFunction(vertexB, vertexC, worldCoords);
                     let wb = this.edgeFunction(vertexC, vertexA, worldCoords);
                     let wc = this.edgeFunction(vertexA, vertexB, worldCoords);
-                    wa /= area;
+                    wa /= area; // normalize them so they add to one
                     wb /= area;
                     wc /= area;
 
-                    wa = Math.abs(wa);
-                    wb = Math.abs(wb);
+                    wa = Math.abs(wa); // depending if the triangle is counter clockwise or clockwise it may be negative
+                    wb = Math.abs(wb); // so we make it positive or else we get strange results
                     wc = Math.abs(wc);
 
-                    if (wa + wb + wc > 1.001) continue;
-
-
-                    const z = 1 / (wa * inverseZA + wb * inverseZB + wc * inverseZC);
+                    const z = 1 / (wa * inverseZA + wb * inverseZB + wc * inverseZC); // interpolate z
                     const previousDepth = this.depthBuffer.getElement(x, y)[0]
-                    if (z > previousDepth || z < 0) continue;
+                    // if the current pixel is obscured by a closer pixel or is outside of our view range, don't render it
+                    if (z > previousDepth || z < camera.near || z > camera.far) continue;
                     this.depthBuffer.setElement(x, y, new Float64Array([z]))
 
                     // apply perspective to vertex attributes
                     const ws = [wa, wb, wc];
                     this.interpolateVertexAttributes(faceVertexAttributes, pixelVertexAttributes, ws, z);
+
 
                     shader(color, [worldA, worldB, worldC], faceAttributes, pixelVertexAttributes);
                     this.renderBuffer.setElement(x, y, color);
