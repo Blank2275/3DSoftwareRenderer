@@ -66,7 +66,7 @@ export class Matrix {
 }
 
 export class Matrices {
-    static Perspective(fov: number, near: number, far: number): Matrix {
+    static Perspective(fov: number, near: number, far: number, aspectRatio: number): Matrix {
         let matrixValues: number[][] = [];
 
         for (let a = 0; a < 4; a++) {
@@ -77,7 +77,7 @@ export class Matrices {
         }
 
         const scale = 1 / Math.tan(fov / 2 * Math.PI / 180);
-        matrixValues[0][0] = scale;
+        matrixValues[0][0] = scale / aspectRatio;
         matrixValues[1][1] = scale;
         matrixValues[2][2] = -far / (far - near);
         matrixValues[3][2] = far * near / (far - near);

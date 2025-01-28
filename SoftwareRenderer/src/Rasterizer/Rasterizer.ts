@@ -14,7 +14,7 @@ export class Rasterizer {
     constructor(width: number, height: number, fov: number, near: number, far: number) {
         this.width = width
         this.height = height
-        this.projectionMatrix = Matrices.Perspective(fov, near, far);
+        this.projectionMatrix = Matrices.Perspective(fov, near, far, width / height);
 
         this.renderBuffer = new Buffer(width, height, 4)
         this.depthBuffer = new Buffer(width, height, 1)
