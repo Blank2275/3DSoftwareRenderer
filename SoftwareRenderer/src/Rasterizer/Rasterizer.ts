@@ -8,21 +8,27 @@ export class Rasterizer {
     width: number
     height: number
     projectionMatrix: Matrix
+    renderBuffer: Buffer
+    depthBuffer: Buffer
 
     constructor(width: number, height: number, fov: number, near: number, far: number) {
         this.width = width
         this.height = height
         this.projectionMatrix = Matrices.Perspective(fov, near, far);
+
+        this.renderBuffer = new Buffer(width, height, 4)
+        this.depthBuffer = new Buffer(width, height, 1)
     }
 
     /*
     * ### renders a mesh to renderBuffer with the provided shader
     * does not write to the screen, only the buffer being passed in
      */
-    render(mesh: Mesh, renderBuffer: Buffer, shader: Shader) {
+    render(mesh: Mesh, shader: Shader) {
         const vertices = mesh.vertices
         const faces = mesh.faces
         const vertexAttributes = mesh.vertexAttributes
+        const meshFaceAttributes: Float64Array[][] = mesh.faceAttributes
 
         // converts world to screen coordinates
         const worldToScreen = (vertex: Vector): Vector => {
@@ -50,12 +56,14 @@ export class Rasterizer {
         }
 
         for (let i in faces) {
-            const face = faces[i]
+            const face = faces[i];
+            let faceAttributes = meshFaceAttributes[i];
+            if (!meshFaceAttributes.length) faceAttributes = []
 
             // the world position of vertices
-            const worldA = vertices[face[0]]
-            const worldB = vertices[face[1]]
-            const worldC = vertices[face[2]]
+            const worldA = vertices[face[0]];
+            const worldB = vertices[face[1]];
+            const worldC = vertices[face[2]];
 
             // the position of vertices after perspective projection
             const vertexA = transformedVertices[face[0]];
@@ -63,12 +71,12 @@ export class Rasterizer {
             const vertexC = transformedVertices[face[2]];
 
             // used for interpolating z per pixel, pre computed out here for performance
-            const inverseZA = [...vertices[face[0]]];
-            const inverseZB = [...vertices[face[1]]];
-            const inverseZC = [...vertices[face[2]]];
-            inverseZA[2] = 1 / inverseZA[2];
-            inverseZB[2] = 1 / inverseZB[2];
-            inverseZC[2] = 1 / inverseZC[2];
+            let inverseZA = worldA[2];
+            let inverseZB = worldB[2];
+            let inverseZC = worldC[2];
+            inverseZA = 1 / inverseZA;
+            inverseZB = 1 / inverseZB;
+            inverseZC = 1 / inverseZC;
 
             // the screen position of vertices
             const screenVertexA = worldToScreen(vertexA);
@@ -77,30 +85,32 @@ export class Rasterizer {
 
             const [tl, br] = this.calculateBoundingBox(screenVertexA, screenVertexB, screenVertexC);
 
-            const area = this.edgeFunction(worldA, worldB, worldC);
+            const area = Math.abs(this.edgeFunction(vertexA, vertexB, vertexC));
 
             let p: Vector = [0, 0, 0] // define down here to avoid recreating it for each pixel (for memory)
-            let color = new Float64Array(4) // also created here for performance
-            let pixelVertexAttributes: Float64Array[] = []
+            let color = new Float64Array(4); // also created here for performance
+            let pixelVertexAttributes: Float64Array[] = [];
 
             // [vertexAttribute][vertex]
             let faceVertexAttributes = [
                 vertexAttributes[face[0]],
                 vertexAttributes[face[1]],
                 vertexAttributes[face[2]],
-            ]
+            ];
 
             if (vertexAttributes.length) {
-                let vas = vertexAttributes[face[0]]
+                let vas = vertexAttributes[face[0]];
                 for (let va in vas) {
-                    let length = vas[va].length
-                    pixelVertexAttributes.push(new Float64Array(length))
+                    let length = vas[va].length;
+                    pixelVertexAttributes.push(new Float64Array(length));
                 }
             }
 
             for (let i in face) {
-                let vertex = transformedVertices[face[i]]
-                let vas = vertexAttributes[face[i]]
+                let vertex = transformedVertices[face[i]];
+                let vas = vertexAttributes[face[i]];
+
+                if (!vas) continue
 
                 for (let va of vas) {
                     for (let element in va) va[element] /= vertex[2]; // for perspective correction
@@ -113,21 +123,32 @@ export class Rasterizer {
                     if (!this.triangleContains(worldCoords, vertexA, vertexB, vertexC)) continue;
                     if (x < 0 || y < 0 || x >= this.width || y >= this.height) continue;
 
-                    p[0] = x;
-                    p[1] = y;
-                    let w0 = this.edgeFunction(screenVertexB, screenVertexC, p);
-                    let w1 = this.edgeFunction(screenVertexC, screenVertexA, p);
-                    let w2 = this.edgeFunction(screenVertexA, screenVertexB, p);
-                    w0 /= area, w1 /= area, w2 /= area;
+                    let wa = this.edgeFunction(vertexB, vertexC, worldCoords);
+                    let wb = this.edgeFunction(vertexC, vertexA, worldCoords);
+                    let wc = this.edgeFunction(vertexA, vertexB, worldCoords);
+                    wa /= area;
+                    wb /= area;
+                    wc /= area;
 
-                    const z = 1 / (w0 * inverseZA[2] + w1 * inverseZB[2] + w2 * inverseZC[2]);
+                    wa = Math.abs(wa);
+                    wb = Math.abs(wb);
+                    wc = Math.abs(wc);
+
+                    if (wa + wb + wc > 1.001) continue;
+
+
+                    const z = 1 / (wa * inverseZA + wb * inverseZB + wc * inverseZC);
+
+                    const previousDepth = this.depthBuffer.getElement(x, y)[0]
+                    if (z > previousDepth) continue;
+                    this.depthBuffer.setElement(x, y, new Float64Array([z]))
 
                     // apply perspective to vertex attributes
-                    const ws = [w0, w1, w2]
-                    this.interpolateVertexAttributes(faceVertexAttributes, pixelVertexAttributes, ws, z)
+                    const ws = [wa, wb, wc];
+                    this.interpolateVertexAttributes(faceVertexAttributes, pixelVertexAttributes, ws, z);
 
-                    shader(color, ...pixelVertexAttributes)
-                    renderBuffer.setElement(x, y, color);
+                    shader(color, faceAttributes, pixelVertexAttributes);
+                    this.renderBuffer.setElement(x, y, color);
                 }
             }
         }
@@ -154,41 +175,41 @@ export class Rasterizer {
         let br: Vector = [...vertexA];
 
         if (vertexB[0] < tl[0]) {
-            tl[0] = vertexB[0]
+            tl[0] = vertexB[0];
         }
 
         if (vertexB[0] > br[0]) {
-            br[0] = vertexB[0]
+            br[0] = vertexB[0];
         }
 
         if (vertexB[1] < tl[1]) {
-            tl[1] = vertexB[1]
+            tl[1] = vertexB[1];
         }
 
         if (vertexB[1] > br[1]) {
-            br[1] = vertexB[1]
+            br[1] = vertexB[1];
         }
 
         if (vertexC[0] < tl[0]) {
-            tl[0] = vertexC[0]
+            tl[0] = vertexC[0];
         }
 
         if (vertexC[0] > br[0]) {
-            br[0] = vertexC[0]
+            br[0] = vertexC[0];
         }
 
         if (vertexC[1] < tl[1]) {
-            tl[1] = vertexC[1]
+            tl[1] = vertexC[1];
         }
 
         if (vertexC[1] > br[1]) {
-            br[1] = vertexC[1]
+            br[1] = vertexC[1];
         }
 
-        tl[0] = Math.floor(tl[0])
-        tl[1] = Math.floor(tl[1])
-        br[0] = Math.floor(br[0])
-        br[1] = Math.floor(br[1])
+        tl[0] = Math.floor(tl[0]);
+        tl[1] = Math.floor(tl[1]);
+        br[0] = Math.ceil(br[0]);
+        br[1] = Math.ceil(br[1]);
 
         return [tl, br]
     }
@@ -207,5 +228,13 @@ export class Rasterizer {
     // used for interpolating z and vertex attriubutes
     edgeFunction(a: Vector, b: Vector, c: Vector): number {
         return (c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0]);
+    }
+
+    /*
+    Clears the render buffer to 0s and the depth buffer to -1
+     */
+    clear() {
+        this.renderBuffer.clear(0)
+        this.depthBuffer.clear(Number.MAX_VALUE)
     }
 }

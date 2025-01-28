@@ -32,17 +32,17 @@ export class Matrix {
             vec4[2] * this.matrix[2][0] +
             vec4[3] * this.matrix[3][0];
 
-        let yPrime: number = vector[0] * this.matrix[0][1] +
+        let yPrime: number = vec4[0] * this.matrix[0][1] +
             vec4[1] * this.matrix[1][1] +
             vec4[2] * this.matrix[2][1] +
             vec4[3] * this.matrix[3][1];
 
-        let zPrime: number = vector[0] * this.matrix[0][2] +
+        let zPrime: number = vec4[0] * this.matrix[0][2] +
             vec4[1] * this.matrix[1][2] +
             vec4[2] * this.matrix[2][2] +
             vec4[3] * this.matrix[3][2];
 
-        let wPrime: number = vector[0] * this.matrix[0][3] +
+        let wPrime: number = vec4[0] * this.matrix[0][3] +
             vec4[1] * this.matrix[1][3] +
             vec4[2] * this.matrix[2][3] +
             vec4[3] * this.matrix[3][3];

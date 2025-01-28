@@ -43,13 +43,13 @@ export class Buffer {
         return res;
     }
 
-    clear() {
+    clear(to: number) {
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 const index = y * this.width * this.dims + x * this.dims;
 
                 for (let d = 0; d < this.dims; d++) {
-                    this.values[index + d] = 0;
+                    this.values[index + d] = to;
                 }
             }
         }

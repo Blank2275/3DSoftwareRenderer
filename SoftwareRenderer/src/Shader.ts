@@ -1,1 +1,1 @@
-export type Shader =  (output: Float64Array, ...vals: any[]) => void
+export type Shader =  (output: Float64Array, faceAttributes: Float64Array[], vertexAttributes: Float64Array[]) => void

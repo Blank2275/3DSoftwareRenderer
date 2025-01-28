@@ -8,7 +8,8 @@ It is my attempt at replicating (at least part of) the 3d graphics pipeline pure
 - - [rasterization](https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/perspective-correct-interpolation-vertex-attributes.html)
   - [perspective projection matrix](https://www.scratchapixel.com/lessons/3d-basic-rendering/perspective-and-orthographic-projection-matrix/building-basic-perspective-projection-matrix.html)
 - I used [wikipedia rotation matrices](https://en.wikipedia.org/wiki/Rotation_matrix) to find rotation matrices  
-- I used llms to explain how parts of the process worked, and the current version of Rasterizer class triangleContains is written by claude entirely  
+- I recommend [wikipedia barycentric coordinates](https://en.wikipedia.org/wiki/Barycentric_coordinate_system) 
+- The current version of Rasterizer class triangleContains is written by claude
   
 ## Future
 This project is not complete, I want to write a shader to get some very basic shading/lighting, load some interesting models and clean up the code.
