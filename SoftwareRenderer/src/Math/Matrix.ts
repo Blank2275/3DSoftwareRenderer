@@ -66,6 +66,19 @@ export class Matrix {
 }
 
 export class Matrices {
+    static Zeros(): Matrix {
+        let matrixValues: number[][] = [];
+
+        for (let a = 0; a < 4; a++) {
+            matrixValues.push([])
+            for (let b = 0; b < 4; b++) {
+                matrixValues[matrixValues.length - 1].push(0)
+            }
+        }
+
+        return new Matrix(matrixValues);
+    }
+
     static Perspective(fov: number, near: number, far: number, aspectRatio: number): Matrix {
         let matrixValues: number[][] = [];
 

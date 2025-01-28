@@ -1,20 +1,18 @@
-import {Matrices, Matrix} from "../Math/Matrix.ts";
 import {Buffer} from "../Buffer.ts";
 import {Shader} from "../Shader.ts";
 import {Mesh} from "./Mesh.ts";
 import {Vector} from "../Math/Vector.ts";
+import {Camera} from "./Camera.ts";
 
 export class Rasterizer {
     width: number
     height: number
-    projectionMatrix: Matrix
     renderBuffer: Buffer
     depthBuffer: Buffer
 
-    constructor(width: number, height: number, fov: number, near: number, far: number) {
+    constructor(width: number, height: number) {
         this.width = width
         this.height = height
-        this.projectionMatrix = Matrices.Perspective(fov, near, far, width / height);
 
         this.renderBuffer = new Buffer(width, height, 4)
         this.depthBuffer = new Buffer(width, height, 1)
@@ -24,8 +22,8 @@ export class Rasterizer {
     * ### renders a mesh to renderBuffer with the provided shader
     * does not write to the screen, only the buffer being passed in
      */
-    render(mesh: Mesh, shader: Shader) {
-        const vertices = mesh.vertices
+    render(mesh: Mesh, camera: Camera, shader: Shader) {
+        let vertices = mesh.vertices
         const faces = mesh.faces
         const vertexAttributes = mesh.vertexAttributes
         const meshFaceAttributes: Float64Array[][] = mesh.faceAttributes
@@ -48,12 +46,8 @@ export class Rasterizer {
             return res
         }
 
-        let transformedVertices: Vector[] = [];
-        // apply perspective projection
-        for (let i in vertices) {
-            let vertex = vertices[i]
-            transformedVertices.push(this.projectionMatrix.multiplyVector(vertex));
-        }
+        vertices = camera.transformVertices(vertices);
+        const transformedVertices = camera.projectVertices(vertices);
 
         for (let i in faces) {
             const face = faces[i];
@@ -116,6 +110,10 @@ export class Rasterizer {
                 }
             }
 
+            tl[0] = Math.max(tl[0], 0);
+            tl[1] = Math.max(tl[1], 0);
+            br[0] = Math.min(br[0], this.width);
+            br[1] = Math.min(br[1], this.height);
             for (let y = tl[1]; y < br[1]; y++) {
                 for (let x = tl[0]; x < br[0]; x++) {
                     const worldCoords: Vector = screenToWorld([x, y, 0])
@@ -137,9 +135,8 @@ export class Rasterizer {
 
 
                     const z = 1 / (wa * inverseZA + wb * inverseZB + wc * inverseZC);
-
                     const previousDepth = this.depthBuffer.getElement(x, y)[0]
-                    if (z > previousDepth) continue;
+                    if (z > previousDepth || z < 0) continue;
                     this.depthBuffer.setElement(x, y, new Float64Array([z]))
 
                     // apply perspective to vertex attributes

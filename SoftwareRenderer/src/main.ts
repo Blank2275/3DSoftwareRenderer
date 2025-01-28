@@ -2,7 +2,8 @@ import './style.css'
 import {Buffer} from "./Buffer.ts";
 import {Rasterizer} from "./Rasterizer/Rasterizer.ts";
 import {Mesh} from "./Rasterizer/Mesh.ts";
-import {abs, cross, dot, norm, sub, Vector} from "./Math/Vector.ts";
+import {cross, dot, norm, sub, Vector} from "./Math/Vector.ts";
+import {Camera} from "./Rasterizer/Camera.ts";
 
 
 function testShader(output: Float64Array, vertices: Vector[], faceAttriubutes: Float64Array[], _vertexAttributes: Float64Array[]) {
@@ -59,12 +60,19 @@ window.onload = function () {
     let ctx = canvas.getContext("2d")
     if (!ctx) return;
 
+    const keys: {[key: string]: boolean} = {};
+
     const loopContext = {
         ctx,
         lastRunTime: new Date().getTime(),
         fpsDisplay: document.getElementById("fps"),
-        rasterizer: new Rasterizer(width, height, 70, 0.1, 1000),
+        rasterizer: new Rasterizer(width, height),
+        camera: new Camera(70, width / height, 0.1, 1000),
         renderBuffer: new Buffer(width, height, 4),
+        position: [0, 0, 0],
+        rotation: 0,
+        rotationSpeed: 0.05,
+        movementSpeed: 0.1,
         animate: function () {
             ctx.clearRect(0, 0, width, height)
             this.rasterizer.clear()
@@ -130,7 +138,7 @@ window.onload = function () {
             mesh.rotate(t / 3, 0, 0);
 
 
-            this.rasterizer.render(mesh, testShader)
+            this.rasterizer.render(mesh, this.camera, testShader)
             renderBuffer(this.rasterizer.renderBuffer, this.ctx);
 
             if (!this.fpsDisplay) return;
@@ -141,10 +149,49 @@ window.onload = function () {
             this.fpsDisplay.innerHTML = `FPS: ${Math.round(fps)}`
             this.lastRunTime = now;
 
+            if (keys["ArrowLeft"]) {
+                this.rotation += this.rotationSpeed;
+            }
+
+            if (keys["ArrowRight"]) {
+                this.rotation -= this.rotationSpeed;
+            }
+
+            if (keys["KeyW"] || keys["ArrowUp"]) {
+                this.position[0] += Math.sin(this.rotation) * this.movementSpeed;
+                this.position[2] += Math.cos(this.rotation) * this.movementSpeed;
+            }
+
+            if (keys["KeyS"] || keys["ArrowDown"]) {
+                this.position[0] += Math.sin(this.rotation + Math.PI) * this.movementSpeed;
+                this.position[2] += Math.cos(this.rotation + Math.PI) * this.movementSpeed;
+            }
+
+            if (keys["KeyA"]) {
+                this.position[0] += Math.sin(this.rotation + Math.PI / 2) * this.movementSpeed;
+                this.position[2] += Math.cos(this.rotation + Math.PI / 2) * this.movementSpeed;
+            }
+
+            if (keys["KeyD"]) {
+                this.position[0] += Math.sin(this.rotation + Math.PI * 3 / 2) * this.movementSpeed;
+                this.position[2] += Math.cos(this.rotation + Math.PI * 3 / 2) * this.movementSpeed;
+            }
+
+            this.camera.position = this.position as Vector;
+            this.camera.rotation[1] = this.rotation;
+
             requestAnimationFrame(this.animate.bind(this));
         }
     }
 
     loopContext.animate()
+
+    document.body.addEventListener("keydown", (e) => {
+        keys[e.code] = true;
+    })
+
+    document.body.addEventListener("keyup", (e) => {
+        keys[e.code] = false;
+    })
 }
 
