@@ -154,31 +154,31 @@ window.onload = function () {
 
             // movement
             if (keys["ArrowLeft"]) {
-                this.rotation -= this.rotationSpeed;
-            }
-
-            if (keys["ArrowRight"]) {
                 this.rotation += this.rotationSpeed;
             }
 
+            if (keys["ArrowRight"]) {
+                this.rotation -= this.rotationSpeed;
+            }
+
             if (keys["KeyW"] || keys["ArrowUp"]) {
-                this.position[0] += Math.sin(this.rotation) * this.movementSpeed;
-                this.position[2] += Math.cos(this.rotation) * this.movementSpeed;
+                this.position[0] += Math.sin(-this.rotation) * this.movementSpeed;
+                this.position[2] += Math.cos(-this.rotation) * this.movementSpeed;
             }
 
             if (keys["KeyS"] || keys["ArrowDown"]) {
-                this.position[0] += Math.sin(this.rotation + Math.PI) * this.movementSpeed;
-                this.position[2] += Math.cos(this.rotation + Math.PI) * this.movementSpeed;
+                this.position[0] += Math.sin(-this.rotation - Math.PI) * this.movementSpeed;
+                this.position[2] += Math.cos(-this.rotation - Math.PI) * this.movementSpeed;
             }
 
             if (keys["KeyA"]) {
-                this.position[0] += Math.sin(this.rotation + Math.PI / 2) * this.movementSpeed;
-                this.position[2] += Math.cos(this.rotation + Math.PI / 2) * this.movementSpeed;
+                this.position[0] += Math.sin(-this.rotation - Math.PI / 2) * this.movementSpeed;
+                this.position[2] += Math.cos(-this.rotation - Math.PI / 2) * this.movementSpeed;
             }
 
             if (keys["KeyD"]) {
-                this.position[0] += Math.sin(this.rotation + Math.PI * 3 / 2) * this.movementSpeed;
-                this.position[2] += Math.cos(this.rotation + Math.PI * 3 / 2) * this.movementSpeed;
+                this.position[0] += Math.sin(-this.rotation - Math.PI * 3 / 2) * this.movementSpeed;
+                this.position[2] += Math.cos(-this.rotation - Math.PI * 3 / 2) * this.movementSpeed;
             }
 
             this.camera.position = this.position as Vector;

@@ -38,7 +38,7 @@ export class Camera {
         const translatedVertices = vertices.map(vertex => sub(vertex, this.position) as Vector);
 
         const rot: Vector = this.rotation;
-        const rotationMatrix = Matrices.Rotation(rot[0], rot[1], rot[2]);
+        const rotationMatrix = Matrices.Rotation(-rot[0], -rot[1], -rot[2]);
         return rotationMatrix.multiplyVectors(translatedVertices);
     }
 
