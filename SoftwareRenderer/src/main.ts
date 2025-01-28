@@ -2,13 +2,33 @@ import './style.css'
 import {Buffer} from "./Buffer.ts";
 import {Rasterizer} from "./Rasterizer/Rasterizer.ts";
 import {Mesh} from "./Rasterizer/Mesh.ts";
-import {Vector} from "./Math/Vector.ts";
+import {abs, cross, dot, norm, sub, Vector} from "./Math/Vector.ts";
 
-function testShader(output: Float64Array, faceAttriubutes: Float64Array[], vertexAttributes: Float64Array[]) {
+
+function testShader(output: Float64Array, vertices: Vector[], faceAttriubutes: Float64Array[], _vertexAttributes: Float64Array[]) {
+    const vecA: Vector = vertices[0];
+    const vecB: Vector = vertices[1];
+    const vecC: Vector = vertices[2];
+    // the normal vector of this face is the cross product of vectors AB and AC
+    const AB: Vector = sub(vecA, vecB);
+    const AC: Vector = sub(vecA, vecC);
+    const normal = norm(cross(AB, AC));
+
+    const lightDirection: Vector = [0, -1, 0];
+    const directionalIntensity = 0.8;
+    const ambient = 0.4;
+    const directional: number = Math.max(dot(normal, lightDirection), 0) * directionalIntensity;
+    const brightness = directional + ambient;
+
     const color = faceAttriubutes[0]
-    let r = color[0];
-    let g = color[1];
-    let b = color[2];
+    let r = color[0] * brightness;
+    let g = color[1] * brightness;
+    let b = color[2] * brightness;
+
+    // uncomment to see normals as a color
+    // r = (normal[0] + 1) / 2;
+    // g = (normal[1] + 1) / 2;
+    // b = (normal[2] + 1) / 2;
 
     output[0] = r
     output[1] = g
@@ -61,16 +81,16 @@ window.onload = function () {
             ]
 
             let faces: number[][] = [
-                [0, 1, 3], // back
-                [1, 2, 3],
-                [0, 3, 4], // left
-                [3, 4, 7],
-                [1, 2, 5], // right
-                [2, 5, 6],
+                [1, 3, 2], // back
+                [1, 0, 3],
+                [0, 4, 7], // left
+                [0, 7, 3],
+                [5, 1, 2], // right
+                [5, 2, 6],
                 [0, 1, 5], // top
-                [0, 4, 5],
-                [2, 3, 6], // bottom
-                [3, 6, 7],
+                [0, 5, 4],
+                [7, 6, 2], // bottom
+                [7, 2, 3],
                 [4, 5, 6], // front
                 [4, 6, 7],
             ]
@@ -95,8 +115,8 @@ window.onload = function () {
                 [new Float64Array([0.1, 0.8, 0.1])],
                 [new Float64Array([0.8, 0.1, 0.8])], // top - purple
                 [new Float64Array([0.8, 0.1, 0.8])],
-                [new Float64Array([0.1, 0.8, 0.8])], // bottom - yellow or orange?
-                [new Float64Array([0.1, 0.8, 0.8])],
+                [new Float64Array([0.8, 0.1, 0.8])], // bottom - orange?
+                [new Float64Array([0.8, 0.1, 0.8])],
                 [new Float64Array([0.1, 0.8, 0.8])], // front - cyan
                 [new Float64Array([0.1, 0.8, 0.8])],
 
@@ -104,10 +124,10 @@ window.onload = function () {
 
             const mesh = new Mesh(vertices, faces, vertexAttriubtes, faceAttributes)
 
-            const theta = new Date().getTime() / 5000 * Math.PI * 2;
-            mesh.translate(0, 0, 5)
-            mesh.rotate(0, theta, 0)
-            mesh.rotate(theta / 2, 0, 0);
+            const t = new Date().getTime() / 10000 * Math.PI * 2;
+            mesh.translate(0, Math.sin(t) * 2, 5)
+            mesh.rotate(0, t, 0)
+            mesh.rotate(t / 3, 0, 0);
 
 
             this.rasterizer.render(mesh, testShader)

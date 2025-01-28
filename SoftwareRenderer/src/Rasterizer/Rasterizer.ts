@@ -87,7 +87,6 @@ export class Rasterizer {
 
             const area = Math.abs(this.edgeFunction(vertexA, vertexB, vertexC));
 
-            let p: Vector = [0, 0, 0] // define down here to avoid recreating it for each pixel (for memory)
             let color = new Float64Array(4); // also created here for performance
             let pixelVertexAttributes: Float64Array[] = [];
 
@@ -147,7 +146,7 @@ export class Rasterizer {
                     const ws = [wa, wb, wc];
                     this.interpolateVertexAttributes(faceVertexAttributes, pixelVertexAttributes, ws, z);
 
-                    shader(color, faceAttributes, pixelVertexAttributes);
+                    shader(color, [worldA, worldB, worldC], faceAttributes, pixelVertexAttributes);
                     this.renderBuffer.setElement(x, y, color);
                 }
             }
