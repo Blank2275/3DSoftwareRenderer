@@ -49,10 +49,20 @@ export class Rasterizer {
 
         const transformedVertices = camera.projectVertices(vertices);
 
+        for (let a in vertexAttributes) {
+            for (let v in vertices) {
+                const vertex = vertices[v]
+
+                let attribute = vertexAttributes[a][v];
+                for (let element = 0; element < attribute.length; element++) {
+                    attribute[element] /= vertex[2];
+                }
+            }
+        }
+
         for (let i in faces) {
             const face = faces[i];
-            let faceAttributes = meshFaceAttributes[i];
-            if (!meshFaceAttributes.length) faceAttributes = []
+            let faceAttributes: Float64Array[] = [];
 
             // the world position of vertices
             const worldA = vertices[face[0]];
@@ -83,30 +93,20 @@ export class Rasterizer {
             let pixelVertexAttributes: Float64Array[] = [];
 
             // [vertexAttribute][vertex]
-            let faceVertexAttributes = [
-                vertexAttributes[face[0]],
-                vertexAttributes[face[1]],
-                vertexAttributes[face[2]],
-            ];
+            let faceVertexAttributes: Float64Array[][] = []
+            for (let attribute of vertexAttributes) {
+                faceVertexAttributes.push([attribute[face[0]], attribute[face[1]], attribute[face[2]]])
+            }
+
+            for (let attribute of meshFaceAttributes) {
+                faceAttributes.push(attribute[i])
+            }
 
             // create empty Float64Arrays to store pixel vertex attributes without creating this class per pixel for performance
             if (vertexAttributes.length) {
-                let vas = vertexAttributes[face[0]];
-                for (let va in vas) {
-                    let length = vas[va].length;
+                for (let va of vertexAttributes) {
+                    let length = va[0].length;
                     pixelVertexAttributes.push(new Float64Array(length));
-                }
-            }
-
-            // divide each vertex attribute by that vertices z for perspective correct interpolation
-            for (let i in face) {
-                let vertex = vertices[face[i]];
-                let vas = vertexAttributes[face[i]];
-
-                if (!vas) continue // vas may be undefined
-
-                for (let va of vas) {
-                    for (let element in va) va[element] /= vertex[2]; // for perspective correction
                 }
             }
 
@@ -144,8 +144,7 @@ export class Rasterizer {
                     const ws = [wa, wb, wc];
                     this.interpolateVertexAttributes(faceVertexAttributes, pixelVertexAttributes, ws, z);
 
-
-                    shader(color, [worldA, worldB, worldC], faceAttributes, pixelVertexAttributes);
+                    shader(color, [worldA, worldB, worldC], faceAttributes, pixelVertexAttributes, mesh.globals);
                     this.renderBuffer.setElement(x, y, color);
                 }
             }
@@ -156,12 +155,11 @@ export class Rasterizer {
     interpolateVertexAttributes(faceVertexAttributes: Float64Array[][], pixelVertexAttributes: Float64Array[], ws: number[], z: number) {
         for (let i = 0; i < pixelVertexAttributes.length; i++) {
             let attribute = pixelVertexAttributes[i]
-            if (i == 0) { // clear it from last time if this is the first vertex being counted
-                for (let element in attribute) attribute[element] = 0;
-            }
-            for (let vertex in faceVertexAttributes) {
+            for (let element in attribute) attribute[element] = 0;
+
+            for (let vertex = 0; vertex < 3; vertex++) {
                 for (let element in attribute) {
-                    attribute[element] += faceVertexAttributes[vertex][i][element] * ws[element] * z;
+                    attribute[element] += faceVertexAttributes[i][vertex][element] * ws[element] * z;
                 }
             }
         }

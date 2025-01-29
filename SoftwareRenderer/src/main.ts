@@ -6,7 +6,7 @@ import {cross, dot, norm, sub, Vector} from "./Math/Vector.ts";
 import {Camera} from "./Rasterizer/Camera.ts";
 
 // sets color to the first face attribute and applies some simple lighting from above and to the right
-function testShader(output: Float64Array, vertices: Vector[], faceAttriubutes: Float64Array[], _vertexAttributes: Float64Array[]) {
+function testShader(output: Float64Array, vertices: Vector[], _faceAttriubutes: Float64Array[], vertexAttributes: Float64Array[], globals) {
     const vecA: Vector = vertices[0];
     const vecB: Vector = vertices[1];
     const vecC: Vector = vertices[2];
@@ -15,13 +15,13 @@ function testShader(output: Float64Array, vertices: Vector[], faceAttriubutes: F
     const AC: Vector = sub(vecA, vecC);
     const normal = norm(cross(AB, AC));
 
-    const lightDirection: Vector = [1, 1, 0];
-    const directionalIntensity = 0.8;
-    const ambient = 0.4;
+    const lightDirection: Vector = [0, 1, 0];
+    const directionalIntensity = 0.75;
+    const ambient = 0.25;
     const directional: number = Math.max(dot(normal, lightDirection), 0) * directionalIntensity;
     const brightness = directional + ambient;
 
-    const color = faceAttriubutes[0]
+    const color = vertexAttributes[0]
     let r = color[0] * brightness;
     let g = color[1] * brightness;
     let b = color[2] * brightness;
@@ -75,64 +75,83 @@ window.onload = function () {
         rotationSpeed: 0.05,
         movementSpeed: 0.1,
         animate: function () {
-            ctx.clearRect(0, 0, width, height)
-            this.rasterizer.clear()
+            ctx.clearRect(0, 0, width, height);
+            this.rasterizer.clear();
 
-            // defines vertices and faces of our cube
             const vertices: Vector[] = [
-                [-1, -1, -1],
-                [1, -1, -1],
-                [1, 1, -1],
-                [-1, 1, -1],
-                [-1, -1, 1],
-                [1, -1, 1],
-                [1, 1, 1],
-                [-1, 1, 1],
-            ]
+                [-1, -1, 0],
+                [1, -1, 0],
+                [0, 1, 0]
+            ];
 
-            let faces: number[][] = [
-                [1, 3, 2], // back
-                [1, 0, 3],
-                [0, 4, 7], // left
-                [0, 7, 3],
-                [5, 1, 2], // right
-                [5, 2, 6],
-                [0, 1, 5], // top
-                [0, 5, 4],
-                [7, 6, 2], // bottom
-                [7, 2, 3],
-                [4, 5, 6], // front
-                [4, 6, 7],
-            ]
+            const faces: number[][] = [
+                [0, 1, 2]
+            ];
 
-            let vertexAttriubtes: Float64Array[][] = [ // I haven't defined any for the cube
-                // [new Float64Array([1, 0, 0])],
-                // [new Float64Array([0, 1, 0])],
-                // [new Float64Array([0, 0, 1])],
-                // [new Float64Array([1, 0, 0])],
-                // [new Float64Array([0, 1, 0])],
-                // [new Float64Array([0, 0, 1])],
-                // [new Float64Array([1, 0, 0])],
-                // [new Float64Array([0, 1, 0])],
-            ]
+            const faceAttributes: Float64Array[][] = [];
+            const vertexAttributes: Float64Array[][] = [
+                [
+                    new Float64Array([0.8, 0.1, 0.1]),
+                    new Float64Array([0.1, 0.8, 0.1]),
+                    new Float64Array([0.1, 0.1, 0.8])
+                ]
+            ];
 
-            let faceAttributes: Float64Array[][] =  [
-                [new Float64Array([0.8, 0.1, 0.1])], // back - red
-                [new Float64Array([0.8, 0.1, 0.1])],
-                [new Float64Array([0.1, 0.1, 0.8])], // left - blue
-                [new Float64Array([0.1, 0.1, 0.8])],
-                [new Float64Array([0.1, 0.8, 0.1])], // right - green
-                [new Float64Array([0.1, 0.8, 0.1])],
-                [new Float64Array([0.8, 0.1, 0.8])], // top - purple
-                [new Float64Array([0.8, 0.1, 0.8])],
-                [new Float64Array([0.8, 0.1, 0.8])], // bottom - orange?
-                [new Float64Array([0.8, 0.1, 0.8])],
-                [new Float64Array([0.1, 0.8, 0.8])], // front - cyan
-                [new Float64Array([0.1, 0.8, 0.8])],
+            // // defines vertices and faces of our cube
+            // const vertices: Vector[] = [
+            //     [-1, -1, -1],
+            //     [1, -1, -1],
+            //     [1, 1, -1],
+            //     [-1, 1, -1],
+            //     [-1, -1, 1],
+            //     [1, -1, 1],
+            //     [1, 1, 1],
+            //     [-1, 1, 1],
+            // ]
+            //
+            // let faces: number[][] = [
+            //     [1, 3, 2], // back
+            //     [1, 0, 3],
+            //     [0, 4, 7], // left
+            //     [0, 7, 3],
+            //     [5, 1, 2], // right
+            //     [5, 2, 6],
+            //     [0, 1, 5], // top
+            //     [0, 5, 4],
+            //     [7, 6, 2], // bottom
+            //     [7, 2, 3],
+            //     [4, 5, 6], // front
+            //     [4, 6, 7],
+            // ]
+            //
+            // let vertexAttriubtes: Float64Array[][] = [ // I haven't defined any for the cube
+            //     // [new Float64Array([1, 0, 0])],
+            //     // [new Float64Array([0, 1, 0])],
+            //     // [new Float64Array([0, 0, 1])],
+            //     // [new Float64Array([1, 0, 0])],
+            //     // [new Float64Array([0, 1, 0])],
+            //     // [new Float64Array([0, 0, 1])],
+            //     // [new Float64Array([1, 0, 0])],
+            //     // [new Float64Array([0, 1, 0])],
+            // ]
+            //
+            // let faceAttributes: Float64Array[][] =  [
+            //     [new Float64Array([0.8, 0.1, 0.1]), // back - red
+            //     new Float64Array([0.8, 0.1, 0.1]),
+            //     new Float64Array([0.1, 0.1, 0.8]), // left - blue
+            //     new Float64Array([0.1, 0.1, 0.8]),
+            //     new Float64Array([0.1, 0.8, 0.1]), // right - green
+            //     new Float64Array([0.1, 0.8, 0.1]),
+            //     new Float64Array([0.8, 0.1, 0.8]), // top - purple
+            //     new Float64Array([0.8, 0.1, 0.8]),
+            //     new Float64Array([0.8, 0.1, 0.8]), // bottom - orange?
+            //     new Float64Array([0.8, 0.1, 0.8]),
+            //     new Float64Array([0.1, 0.8, 0.8]), // front - cyan
+            //     new Float64Array([0.1, 0.8, 0.8])]
+            //
+            // ]
 
-            ]
-
-            const mesh = new Mesh(vertices, faces, vertexAttriubtes, faceAttributes)
+            const mesh = new Mesh(vertices, faces, vertexAttributes, faceAttributes)
 
             const t = new Date().getTime() / 10000 * Math.PI * 2;
             mesh.translate(0, Math.sin(t) * 2, 5)

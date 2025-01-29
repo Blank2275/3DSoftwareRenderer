@@ -10,16 +10,18 @@ export class Mesh {
     faces: number[][]
     vertexAttributes: Float64Array[][]
     faceAttributes: Float64Array[][]
+    globals: Float64Array[]
 
     rotation: number[]
     position: number[]
 
-    constructor(vertices: Vector[], faces: number[][], vertexAttributes?: Float64Array[][], faceAttriubutes?: Float64Array[][]) {
+    constructor(vertices: Vector[], faces: number[][], vertexAttributes?: Float64Array[][], faceAttriubutes?: Float64Array[][], globals?: Float64Array[]) {
         this.originalVertices = [...vertices];
         this.vertices = [...vertices];
         this.faces = faces;
         this.vertexAttributes = vertexAttributes ?? [];
         this.faceAttributes = faceAttriubutes ?? [];
+        this.globals = globals ?? [];
 
         this.rotation = [0, 0, 0];
         this.position = [0, 0, 0];
