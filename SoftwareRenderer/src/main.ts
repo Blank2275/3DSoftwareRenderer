@@ -2,29 +2,37 @@ import './style.css'
 import {Buffer} from "./Buffer.ts";
 import {Rasterizer} from "./Rasterizer/Rasterizer.ts";
 import {Mesh} from "./Rasterizer/Mesh.ts";
-import {cross, dot, norm, sub, Vector} from "./Math/Vector.ts";
+import {dot, fromF64, norm, sub, Vector} from "./Math/Vector.ts";
 import {Camera} from "./Rasterizer/Camera.ts";
 
 // sets color to the first face attribute and applies some simple lighting from above and to the right
-function testShader(output: Float64Array, vertices: Vector[], _faceAttriubutes: Float64Array[], vertexAttributes: Float64Array[], globals) {
-    const vecA: Vector = vertices[0];
-    const vecB: Vector = vertices[1];
-    const vecC: Vector = vertices[2];
-    // the normal vector of this face is the cross product of vectors AB and AC
-    const AB: Vector = sub(vecA, vecB);
-    const AC: Vector = sub(vecA, vecC);
-    const normal = norm(cross(AB, AC));
+function testShader(output: Float64Array, position: Vector, faceAttriubutes: Float64Array[], _vertexAttributes: Float64Array[], globals: Float64Array[]) {
+    const normal = fromF64(faceAttriubutes[1])
 
-    const lightDirection: Vector = [0, 1, 0];
-    const directionalIntensity = 0.75;
-    const ambient = 0.25;
-    const directional: number = Math.max(dot(normal, lightDirection), 0) * directionalIntensity;
-    const brightness = directional + ambient;
+    const pointLights = globals[0];
+    const ambient = globals[1];
+    const lighting = [0, 0, 0];
 
-    const color = vertexAttributes[0]
-    let r = color[0] * brightness;
-    let g = color[1] * brightness;
-    let b = color[2] * brightness;
+    // point lights
+    for (let i = 0; i < pointLights.length; i += 6) {
+        const lightPosition: Vector = [pointLights[i + 0], pointLights[i + 1], pointLights[i + 2]];
+        const direction = norm(sub(lightPosition, position));
+        const brightness = Math.max(dot(normal, direction), 0);
+        const color = [pointLights[i + 3], pointLights[i + 4], pointLights[i + 5]];
+
+        lighting[0] += color[0] * brightness;
+        lighting[1] += color[1] * brightness;
+        lighting[2] += color[2] * brightness;
+    }
+
+    lighting[0] += ambient[0];
+    lighting[1] += ambient[1];
+    lighting[2] += ambient[2];
+
+    const color = faceAttriubutes[0]
+    let r = color[0] * lighting[0];
+    let g = color[1] * lighting[1];
+    let b = color[2] * lighting[2];
 
     // uncomment to see normals as a color
     // r = (normal[0] + 1) / 2;
@@ -46,6 +54,23 @@ function renderBuffer(buffer: Buffer, context: CanvasRenderingContext2D) {
     }
 
     context.putImageData(imageData, 0, 0);
+}
+
+//
+function createPointLights(camera: Camera, locations: Vector[], colors: number[][]) {
+    locations = camera.transformVertices(locations); // account for camera position
+
+    const lights: Float64Array = new Float64Array(locations.length * 6); //  number of lights times size of light (3 numbers for position 3 for color)
+    for(let light = 0; light < locations.length; light++) {
+        lights[light * 6 + 0] = locations[light][0]
+        lights[light * 6 + 1] = locations[light][1]
+        lights[light * 6 + 2] = locations[light][2]
+        lights[light * 6 + 3] = colors[light][0]
+        lights[light * 6 + 4] = colors[light][1]
+        lights[light * 6 + 5] = colors[light][2]
+    }
+
+    return lights;
 }
 
 window.onload = function () {
@@ -78,85 +103,83 @@ window.onload = function () {
             ctx.clearRect(0, 0, width, height);
             this.rasterizer.clear();
 
-            const vertices: Vector[] = [
-                [-1, -1, 0],
-                [1, -1, 0],
-                [0, 1, 0]
-            ];
-
-            const faces: number[][] = [
-                [0, 1, 2]
-            ];
-
-            const faceAttributes: Float64Array[][] = [];
-            const vertexAttributes: Float64Array[][] = [
-                [
-                    new Float64Array([0.8, 0.1, 0.1]),
-                    new Float64Array([0.1, 0.8, 0.1]),
-                    new Float64Array([0.1, 0.1, 0.8])
-                ]
-            ];
-
-            // // defines vertices and faces of our cube
             // const vertices: Vector[] = [
-            //     [-1, -1, -1],
-            //     [1, -1, -1],
-            //     [1, 1, -1],
-            //     [-1, 1, -1],
-            //     [-1, -1, 1],
-            //     [1, -1, 1],
-            //     [1, 1, 1],
-            //     [-1, 1, 1],
-            // ]
+            //     [-1, -1, 0],
+            //     [1, -1, 0],
+            //     [0, 1, 0]
+            // ];
             //
-            // let faces: number[][] = [
-            //     [1, 3, 2], // back
-            //     [1, 0, 3],
-            //     [0, 4, 7], // left
-            //     [0, 7, 3],
-            //     [5, 1, 2], // right
-            //     [5, 2, 6],
-            //     [0, 1, 5], // top
-            //     [0, 5, 4],
-            //     [7, 6, 2], // bottom
-            //     [7, 2, 3],
-            //     [4, 5, 6], // front
-            //     [4, 6, 7],
-            // ]
+            // const faces: number[][] = [
+            //     [0, 1, 2]
+            // ];
             //
-            // let vertexAttriubtes: Float64Array[][] = [ // I haven't defined any for the cube
-            //     // [new Float64Array([1, 0, 0])],
-            //     // [new Float64Array([0, 1, 0])],
-            //     // [new Float64Array([0, 0, 1])],
-            //     // [new Float64Array([1, 0, 0])],
-            //     // [new Float64Array([0, 1, 0])],
-            //     // [new Float64Array([0, 0, 1])],
-            //     // [new Float64Array([1, 0, 0])],
-            //     // [new Float64Array([0, 1, 0])],
-            // ]
-            //
-            // let faceAttributes: Float64Array[][] =  [
-            //     [new Float64Array([0.8, 0.1, 0.1]), // back - red
-            //     new Float64Array([0.8, 0.1, 0.1]),
-            //     new Float64Array([0.1, 0.1, 0.8]), // left - blue
-            //     new Float64Array([0.1, 0.1, 0.8]),
-            //     new Float64Array([0.1, 0.8, 0.1]), // right - green
-            //     new Float64Array([0.1, 0.8, 0.1]),
-            //     new Float64Array([0.8, 0.1, 0.8]), // top - purple
-            //     new Float64Array([0.8, 0.1, 0.8]),
-            //     new Float64Array([0.8, 0.1, 0.8]), // bottom - orange?
-            //     new Float64Array([0.8, 0.1, 0.8]),
-            //     new Float64Array([0.1, 0.8, 0.8]), // front - cyan
-            //     new Float64Array([0.1, 0.8, 0.8])]
-            //
-            // ]
+            // const faceAttributes: Float64Array[][] = [];
+            // const vertexAttributes: Float64Array[][] = [
+            //     [
+            //         new Float64Array([0.8, 0.1, 0.1]),
+            //         new Float64Array([0.1, 0.8, 0.1]),
+            //         new Float64Array([0.1, 0.1, 0.8])
+            //     ]
+            // ];
 
-            const mesh = new Mesh(vertices, faces, vertexAttributes, faceAttributes)
+            // defines vertices and faces of our cube
+            const vertices: Vector[] = [
+                [-1, -1, -1],
+                [1, -1, -1],
+                [1, 1, -1],
+                [-1, 1, -1],
+                [-1, -1, 1],
+                [1, -1, 1],
+                [1, 1, 1],
+                [-1, 1, 1],
+            ]
 
+            let faces: number[][] = [
+                [1, 3, 2], // back
+                [1, 0, 3],
+                [0, 4, 7], // left
+                [0, 7, 3],
+                [5, 1, 2], // right
+                [5, 2, 6],
+                [7, 6, 2], // top
+                [7, 2, 3],
+                [0, 1, 5], // bottom
+                [0, 5, 4],
+                [4, 5, 6], // front
+                [4, 6, 7],
+            ]
+
+            let faceColors: Float64Array[] =  [
+                new Float64Array([0.8, 0.1, 0.1]), // back - red
+                new Float64Array([0.8, 0.1, 0.1]),
+                new Float64Array([0.1, 0.1, 0.8]), // left - blue
+                new Float64Array([0.1, 0.1, 0.8]),
+                new Float64Array([0.1, 0.8, 0.1]), // right - green
+                new Float64Array([0.1, 0.8, 0.1]),
+                new Float64Array([0.8, 0.1, 0.8]), // top - purple
+                new Float64Array([0.8, 0.1, 0.8]),
+                new Float64Array([0.8, 0.8, 0.1]), // bottom - yellow
+                new Float64Array([0.8, 0.8, 0.1]),
+                new Float64Array([0.1, 0.8, 0.8]), // front - cyan
+                new Float64Array([0.1, 0.8, 0.8])
+            ]
+
+            const mesh = new Mesh(vertices, faces)
             const t = new Date().getTime() / 10000 * Math.PI * 2;
             mesh.translate(0, Math.sin(t) * 2, 5)
             mesh.rotate(0, t, 0)
             mesh.rotate(t / 3, 0, 0);
+
+            //
+            // [10, 10, 10] [0.4, 0.4, 0.4]
+            const pointLightLocations: Vector[] = [[0, 0, 3.5]];
+            const pointLightColors: number[][] = [[0.9, 0.9, 0.9]];
+
+            mesh.addFaceAttribute(faceColors);
+            mesh.addFaceAttribute(mesh.calculateNormals(this.camera,false));
+            mesh.addGlobal(createPointLights(this.camera, pointLightLocations, pointLightColors))
+            mesh.addGlobal(new Float64Array([0.25, 0.25, 0.25])) // ambient light
+
 
 
             this.rasterizer.render(mesh, this.camera, testShader)
@@ -198,6 +221,14 @@ window.onload = function () {
             if (keys["KeyD"]) {
                 this.position[0] += Math.sin(-this.rotation - Math.PI * 3 / 2) * this.movementSpeed;
                 this.position[2] += Math.cos(-this.rotation - Math.PI * 3 / 2) * this.movementSpeed;
+            }
+
+            if (keys["Space"]) {
+                this.position[1] += this.movementSpeed
+            }
+
+            if (keys["ShiftLeft"]) {
+                this.position[1] -= this.movementSpeed;
             }
 
             this.camera.position = this.position as Vector;

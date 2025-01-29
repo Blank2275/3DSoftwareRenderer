@@ -69,6 +69,17 @@ export class Rasterizer {
             const worldB = vertices[face[1]];
             const worldC = vertices[face[2]];
 
+            // used for interpolating x and y positions per pixel
+            const interpolateVertexA = [...worldA]
+            const interpolateVertexB = [...worldB]
+            const interpolateVertexC = [...worldC]
+            interpolateVertexA[0] /= interpolateVertexA[2]
+            interpolateVertexA[1] /= interpolateVertexA[2]
+            interpolateVertexB[0] /= interpolateVertexB[2]
+            interpolateVertexB[1] /= interpolateVertexB[2]
+            interpolateVertexC[0] /= interpolateVertexC[2]
+            interpolateVertexC[1] /= interpolateVertexC[2]
+
             // the position of vertices after perspective projection
             const vertexA = transformedVertices[face[0]];
             const vertexB = transformedVertices[face[1]];
@@ -144,7 +155,11 @@ export class Rasterizer {
                     const ws = [wa, wb, wc];
                     this.interpolateVertexAttributes(faceVertexAttributes, pixelVertexAttributes, ws, z);
 
-                    shader(color, [worldA, worldB, worldC], faceAttributes, pixelVertexAttributes, mesh.globals);
+                    // calculate x and y of pixel
+                    const worldX = (interpolateVertexA[0] * wa + interpolateVertexB[0] * wb + interpolateVertexC[0] * wc) * z;
+                    const worldY = (interpolateVertexA[1] * wa + interpolateVertexB[1] * wb + interpolateVertexC[1] * wc) * z;
+
+                    shader(color, [worldX, worldY, z], faceAttributes, pixelVertexAttributes, mesh.globals);
                     this.renderBuffer.setElement(x, y, color);
                 }
             }

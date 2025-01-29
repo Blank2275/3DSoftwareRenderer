@@ -51,3 +51,13 @@ export function magnitude(vec: Vector): number {
 export function norm(vec: Vector): Vector {
     return div(vec, magnitude(vec))
 }
+
+// takes a float 64 array with length of at least 3 and makes the first 3 elements into a vector
+export function fromF64(array: Float64Array): Vector {
+    return [array[0], array[1], array[2]];
+}
+
+// takes a vector and converts it into the equivalent float 64 array
+export function toF64(vec: Vector): Float64Array {
+    return new Float64Array(vec);
+}

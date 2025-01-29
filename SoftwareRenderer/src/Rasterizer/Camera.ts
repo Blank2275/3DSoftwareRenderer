@@ -42,6 +42,14 @@ export class Camera {
         return rotationMatrix.multiplyVectors(translatedVertices);
     }
 
+    // trannsforms direction vectors, does not translate but only rotates direction vectors to match camera
+    // assumes all vectors start at the origin
+    transformDirectionVectors(vectors: Vector[]) {
+        const rot: Vector = this.rotation;
+        const rotationMatrix = Matrices.Rotation(-rot[0], -rot[1], -rot[2]);
+        return rotationMatrix.multiplyVectors(vectors);
+    }
+
     /*
     Projects points using existing perspective projection matrix, this does not take into account the cameras position
     or rotation, it assumes you have already called transformPoints
