@@ -2,7 +2,7 @@ import './style.css'
 import {Buffer} from "./Buffer.ts";
 import {Rasterizer} from "./Rasterizer/Rasterizer.ts";
 import {Mesh} from "./Rasterizer/Mesh.ts";
-import {dot, fromF64, norm, sub, Vector} from "./Math/Vector.ts";
+import {add, dot, fromF64, norm, sub, Vector} from "./Math/Vector.ts";
 import {Camera} from "./Rasterizer/Camera.ts";
 
 // sets color to the first face attribute and applies some simple lighting from above and to the right
@@ -73,6 +73,13 @@ function createPointLights(camera: Camera, locations: Vector[], colors: number[]
     return lights;
 }
 
+function generateMovementVector(theta: number, movementSpeed: number): Vector {
+    const vec: Vector = [0, 0, 0];
+    vec[0] = Math.sin(-theta) * movementSpeed;
+    vec[2] = Math.cos(-theta) * movementSpeed;
+    return vec;
+}
+
 window.onload = function () {
     let canvas: HTMLCanvasElement | null = document.getElementById("canvas") as (HTMLCanvasElement | null);
     if (!canvas) return;
@@ -95,8 +102,8 @@ window.onload = function () {
         rasterizer: new Rasterizer(width, height),
         camera: new Camera(70, 0.1, 1000),
         renderBuffer: new Buffer(width, height, 4),
-        position: [0, 0, 0],
-        rotation: 0,
+        position: [0, 0, -10],
+        rotation: [0, 0, 0],
         rotationSpeed: 0.05,
         movementSpeed: 0.1,
         animate: function () {
@@ -174,15 +181,41 @@ window.onload = function () {
             // [10, 10, 10] [0.4, 0.4, 0.4]
             const pointLightLocations: Vector[] = [[0, 0, 3.5]];
             const pointLightColors: number[][] = [[0.9, 0.9, 0.9]];
+            const pointLights = createPointLights(this.camera, pointLightLocations, pointLightColors);
+            const ambientLight = new Float64Array([0.25, 0.25, 0.25]);
 
             mesh.addFaceAttribute(faceColors);
             mesh.addFaceAttribute(mesh.calculateNormals(this.camera,false));
-            mesh.addGlobal(createPointLights(this.camera, pointLightLocations, pointLightColors))
-            mesh.addGlobal(new Float64Array([0.25, 0.25, 0.25])) // ambient light
-
-
-
+            mesh.addGlobal(pointLights)
+            mesh.addGlobal(ambientLight) // ambient light
             this.rasterizer.render(mesh, this.camera, testShader)
+
+            const groundVertices: Vector[] = [
+                [-10, 0, -10],
+                [10, 0, -10],
+                [10, 0, 10],
+                [-10, 0, 10],
+            ]
+
+            const groundFaces = [
+                [3, 0, 1],
+                [3, 1, 2]
+            ]
+
+            const groundColors = [
+                new Float64Array([0.85, 0.85, 0.85]),
+                new Float64Array([0.85, 0.85, 0.85]),
+            ]
+
+            const ground = new Mesh(groundVertices, groundFaces);
+            ground.translate(0, -4, 0);
+
+            ground.addFaceAttribute(groundColors);
+            ground.addFaceAttribute(ground.calculateNormals(this.camera, false));
+            ground.addGlobal(pointLights);
+            ground.addGlobal(ambientLight);
+            this.rasterizer.render(ground, this.camera, testShader)
+
             renderBuffer(this.rasterizer.renderBuffer, this.ctx);
 
             // framerate calculation and display code
@@ -196,31 +229,31 @@ window.onload = function () {
 
             // movement
             if (keys["ArrowLeft"]) {
-                this.rotation += this.rotationSpeed;
+                this.rotation[1] += this.rotationSpeed;
             }
 
             if (keys["ArrowRight"]) {
-                this.rotation -= this.rotationSpeed;
+                this.rotation[1] -= this.rotationSpeed;
             }
 
-            if (keys["KeyW"] || keys["ArrowUp"]) {
-                this.position[0] += Math.sin(-this.rotation) * this.movementSpeed;
-                this.position[2] += Math.cos(-this.rotation) * this.movementSpeed;
+            if (keys["KeyW"]) {
+                const movementVector = generateMovementVector(this.rotation[1], this.movementSpeed);
+                this.position = add(this.position as Vector, movementVector);
             }
 
-            if (keys["KeyS"] || keys["ArrowDown"]) {
-                this.position[0] += Math.sin(-this.rotation - Math.PI) * this.movementSpeed;
-                this.position[2] += Math.cos(-this.rotation - Math.PI) * this.movementSpeed;
+            if (keys["KeyS"]) {
+                const movementVector = generateMovementVector(this.rotation[1] + Math.PI, this.movementSpeed);
+                this.position = add(this.position as Vector, movementVector);
             }
 
             if (keys["KeyA"]) {
-                this.position[0] += Math.sin(-this.rotation - Math.PI / 2) * this.movementSpeed;
-                this.position[2] += Math.cos(-this.rotation - Math.PI / 2) * this.movementSpeed;
+                const movementVector = generateMovementVector(this.rotation[1] + Math.PI / 2, this.movementSpeed);
+                this.position = add(this.position as Vector, movementVector);
             }
 
             if (keys["KeyD"]) {
-                this.position[0] += Math.sin(-this.rotation - Math.PI * 3 / 2) * this.movementSpeed;
-                this.position[2] += Math.cos(-this.rotation - Math.PI * 3 / 2) * this.movementSpeed;
+                const movementVector = generateMovementVector(this.rotation[1] + Math.PI * 3 / 2, this.movementSpeed);
+                this.position = add(this.position as Vector, movementVector);
             }
 
             if (keys["Space"]) {
@@ -231,8 +264,10 @@ window.onload = function () {
                 this.position[1] -= this.movementSpeed;
             }
 
+            this.rotation[0] = Math.max(Math.min(this.rotation[0], Math.PI / 2), -Math.PI / 2)
+
             this.camera.position = this.position as Vector;
-            this.camera.rotation[1] = this.rotation;
+            this.camera.rotation = this.rotation as Vector;
 
             requestAnimationFrame(this.animate.bind(this));
         }

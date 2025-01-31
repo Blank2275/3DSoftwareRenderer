@@ -147,8 +147,8 @@ export class Rasterizer {
 
                     const z = 1 / (wa * inverseZA + wb * inverseZB + wc * inverseZC); // interpolate z
                     const previousDepth = this.depthBuffer.getElement(x, y)[0]
-                    // if the current pixel is obscured by a closer pixel or is outside of our view range, don't render it
-                    if (z > previousDepth || z < camera.near || z > camera.far) continue;
+                    // if the current pixel is obscured by a closer pixel, don't render it
+                    if (z > previousDepth || z < 0) continue;
                     this.depthBuffer.setElement(x, y, new Float64Array([z]))
 
                     // apply perspective to vertex attributes

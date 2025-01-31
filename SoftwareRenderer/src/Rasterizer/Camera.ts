@@ -54,11 +54,28 @@ export class Camera {
     Projects points using existing perspective projection matrix, this does not take into account the cameras position
     or rotation, it assumes you have already called transformPoints
      */
-    projectVertices(vertices: Vector[]) {
-        let tempVertices: Vector[] = [];
+    projectVertices(vertices: Vector[]): Vector[] {
+        const tempVertices: Vector[] = [];
+
         vertices.forEach((vertex) => {
+            if (Math.abs(vertex[2]) < Number.EPSILON) vertex[2] = 0.00001; // handle edge case where we divide by 0 in perspective division
             tempVertices.push([vertex[0], vertex[1], Math.abs(vertex[2])])
         })
-        return this.projectionMatrix.multiplyVectors(tempVertices);
+
+        const projectedVertices = this.projectionMatrix.multiplyVectors(tempVertices);
+
+        // when one or more vertices are behind the camera they appear to blow up as they approach 0, this is not seen
+        // though when one vertex is negative not near 0, instead it will be flipped causing weird behavior
+        // here we divide them by a tiny number so they will appear properly huge (and go offscreen) while
+        // preserving slope
+        for (let i = 0; i < vertices.length; i++) {
+            if (vertices[i][2] < 0.001) {
+                projectedVertices[i][0] = vertices[i][0] / 0.000001;
+                projectedVertices[i][1] = vertices[i][1] / -0.000001;
+                // projectedVertices[i][2] = 0; // to signify that this vertex was negative for proper handling
+            }
+        }
+
+        return projectedVertices;
     }
 }
