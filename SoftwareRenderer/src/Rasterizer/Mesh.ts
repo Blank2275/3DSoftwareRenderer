@@ -101,7 +101,7 @@ export class Mesh {
             normals.push(normalVector)
         }
 
-        normals = camera.transformDirectionVectors(normals);
+        // normals = camera.transformDirectionVectors(normals);
 
         return normals.map(normal => toF64(normal));
     }

@@ -39,12 +39,9 @@ export class Rasterizer {
         }
 
         // converts screen to world coordinates
-        const screenToWorld = (vertex: Vector): Vector => {
-            let res: Vector = [0, 0, 0];
-            res[0] = vertex[0] / this.width * 2 * aspectRatio - 1;
-            res[1] = vertex[1] / this.height * 2 - 1;
-
-            return res
+        const screenToWorld = (vertex: Vector) => {
+            vertex[0] = vertex[0] / this.width * 2 * aspectRatio - 1;
+            vertex[1] = vertex[1] / this.height * 2 - 1;
         }
 
         const transformedVertices = camera.projectVertices(vertices);
@@ -126,11 +123,18 @@ export class Rasterizer {
             br[0] = Math.min(br[0], this.width);
             br[1] = Math.min(br[1], this.height);
 
+            let depth: Float64Array = new Float64Array([0]);
+            let ws = [0, 0, 0];
+            let shaderCoordinates: Vector = [0, 0, 0];
+            let worldCoords: Vector = [0, 0, 0]
+
             for (let y = tl[1]; y < br[1]; y++) {
                 for (let x = tl[0]; x < br[0]; x++) {
-                    const worldCoords: Vector = screenToWorld([x, y, 0])
-                    if (!this.triangleContains(worldCoords, vertexA, vertexB, vertexC)) continue;
+                    worldCoords[0] = x;
+                    worldCoords[1] = y;
+                    screenToWorld(worldCoords)
                     if (x < 0 || y < 0 || x >= this.width || y >= this.height) continue;
+                    if (!this.triangleContains(worldCoords, vertexA, vertexB, vertexC)) continue;
 
                     // each of these is the area between two of the vertices and the current pixel, it is used as
                     // a measure of how much a given vertex effects the z or a vertex attribute
@@ -146,20 +150,27 @@ export class Rasterizer {
                     wc = Math.abs(wc);
 
                     const z = 1 / (wa * inverseZA + wb * inverseZB + wc * inverseZC); // interpolate z
-                    const previousDepth = this.depthBuffer.getElement(x, y)[0]
+                    this.depthBuffer.getSingleElement(x, y, depth);
+
                     // if the current pixel is obscured by a closer pixel, don't render it
-                    if (z > previousDepth || z < 0) continue;
-                    this.depthBuffer.setElement(x, y, new Float64Array([z]))
+                    if (z > depth[0] || z < 0) continue;
+                    depth[0] = z;
+                    this.depthBuffer.setSingleElement(x, y, depth[0])
 
                     // apply perspective to vertex attributes
-                    const ws = [wa, wb, wc];
+                    ws[0] = wa;
+                    ws[1] = wb;
+                    ws[2] = wc;
                     this.interpolateVertexAttributes(faceVertexAttributes, pixelVertexAttributes, ws, z);
 
                     // calculate x and y of pixel
                     const worldX = (interpolateVertexA[0] * wa + interpolateVertexB[0] * wb + interpolateVertexC[0] * wc) * z;
                     const worldY = (interpolateVertexA[1] * wa + interpolateVertexB[1] * wb + interpolateVertexC[1] * wc) * z;
 
-                    shader(color, [worldX, worldY, z], faceAttributes, pixelVertexAttributes, mesh.globals);
+                    shaderCoordinates[0] = worldX;
+                    shaderCoordinates[1] = worldY;
+                    shaderCoordinates[2] = z;
+                    shader(color, shaderCoordinates, faceAttributes, pixelVertexAttributes, mesh.globals);
                     this.renderBuffer.setElement(x, y, color);
                 }
             }
@@ -168,13 +179,16 @@ export class Rasterizer {
 
     // takes all the face vertex attributes, interpolates between them based off pixel location (ws) and z and writes it to pixelVertexAttributes
     interpolateVertexAttributes(faceVertexAttributes: Float64Array[][], pixelVertexAttributes: Float64Array[], ws: number[], z: number) {
-        for (let i = 0; i < pixelVertexAttributes.length; i++) {
+        let numPixelVertexAttributes = pixelVertexAttributes.length;
+        for (let i = 0; i < numPixelVertexAttributes; i++) {
             let attribute = pixelVertexAttributes[i]
-            for (let element in attribute) attribute[element] = 0;
 
-            for (let vertex = 0; vertex < 3; vertex++) {
-                for (let element in attribute) {
-                    attribute[element] += faceVertexAttributes[i][vertex][element] * ws[element] * z;
+            const numElements = attribute.length;
+
+            for (let element = 0; element < numElements; element++) {
+                attribute[element] = 0;
+                for (let vertex = 0; vertex < 3; vertex++) {
+                    attribute[element] += faceVertexAttributes[i][vertex][element] * ws[vertex] * z;
                 }
             }
         }

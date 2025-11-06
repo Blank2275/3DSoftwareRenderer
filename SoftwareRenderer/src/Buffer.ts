@@ -29,32 +29,33 @@ export class Buffer {
         }
     }
 
+    setSingleElement(x: number, y: number, val: number) {
+        this.values[y * this.width + x] = val;
+    }
+
     /*
     Gets the value at a given coordinate as a Float64Array
      */
-    getElement(x: number, y: number): Float64Array {
+    getElement(x: number, y: number, output: Float64Array) {
         let startIndex = this.indexForElement(x, y);
-        let res = new Float64Array(this.dims)
 
         for (let i = 0; i < this.dims; i++) {
-            res[i] = this.values[startIndex + i];
+            output[i] = this.values[startIndex + i];
         }
+    }
 
-        return res;
+    getSingleElement(x: number, y: number, output: Float64Array) {
+        output[0] = this.values[y * this.width + x];
     }
 
     /*
     Clears all elements of the buffer to a value
      */
     clear(to: number) {
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                const index = y * this.width * this.dims + x * this.dims;
-
-                for (let d = 0; d < this.dims; d++) {
-                    this.values[index + d] = to;
-                }
-            }
+        let i = this.values.length - 1;
+        this.values[0] = to;
+        while (--i) {
+            this.values[i] = to;
         }
     }
 }
