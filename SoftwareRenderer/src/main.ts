@@ -171,13 +171,16 @@ window.onload = function () {
     let ctx = canvas.getContext("2d")
     if (!ctx) return;
 
-    const keys: {[key: string]: boolean} = {};
+    const keys: {[key: string]: boolean} = {}
+
+    const rasterizer = new Rasterizer(width, height);
+    rasterizer.initializeWasm();
 
     const loopContext = {
         ctx,
         lastRunTime: new Date().getTime(),
         fpsDisplay: document.getElementById("fps"),
-        rasterizer: new Rasterizer(width, height),
+        rasterizer: rasterizer,
         camera: new Camera(70, 0.1, 1000),
         renderBuffer: new Buffer(width, height, 4),
         position: [0, 0, -10],

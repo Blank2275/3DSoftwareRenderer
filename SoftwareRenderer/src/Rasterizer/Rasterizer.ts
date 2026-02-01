@@ -3,12 +3,16 @@ import {Shader} from "../Shader.ts";
 import {Mesh} from "./Mesh.ts";
 import {Vector} from "../Math/Vector.ts";
 import {Camera} from "./Camera.ts";
+import createModule from "../WasmBindings/renderer.mjs";
+import type {EmbindModule, MainModule} from "../WasmBindings/renderer.d.ts"
+import MainModuleFactory from "../WasmBindings/renderer.mjs";
 
 export class Rasterizer {
     width: number
     height: number
     renderBuffer: Buffer
     depthBuffer: Buffer
+    module: EmbindModule | null
 
     constructor(width: number, height: number) {
         this.width = width
@@ -16,6 +20,8 @@ export class Rasterizer {
 
         this.renderBuffer = new Buffer(width, height, 4)
         this.depthBuffer = new Buffer(width, height, 1)
+
+        this.module = null // only gets a value when webassembly is initialized
     }
 
     /*
@@ -259,7 +265,26 @@ export class Rasterizer {
     Clears the render buffer to 0s and the depth buffer to -1
      */
     clear() {
-        this.renderBuffer.clear(0)
+        this.renderBuffer.clear(0.25)
         this.depthBuffer.clear(Number.MAX_VALUE)
+    }
+
+    initializeWasm() {
+        const moduleArgs = {
+            onRuntimeInitialized: () => {
+                console.log('Wasm Module loaded');
+            },
+            print: function(text) {
+                console.log('c++: ' + text);
+            },
+            // Add other configurations like canvas, wasmBinary, etc. as needed
+            // canvas: document.getElementById('my-canvas')
+        };
+
+        MainModuleFactory(moduleArgs).then((Module) => {
+            this.module = Module;
+            this.module!.helloWorld();
+            this.module!.test(new Float64Array([0, 1.1, 2.2, 3.3]));
+        });
     }
 }
