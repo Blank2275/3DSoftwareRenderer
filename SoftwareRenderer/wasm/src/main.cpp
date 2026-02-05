@@ -7,18 +7,11 @@ void helloWorld() {
     std::cout<<"Print :)"<<std::endl;
 }
 
-void passArray(const emscripten::val &floatArrayObject) {
-    unsigned int length = floatArrayObject["length"].as<unsigned int>();
-    std::vector<double> floatArray;
-    floatArray.resize(length);
-    auto memory = emscripten::val::module_property("HEAPU8")["buffer"];
-    auto memoryView = floatArrayObject["constructor"].new_(memory, reinterpret_cast<uintptr_t>(floatArray.data()), length);
-    memoryView.call<void>("set", floatArrayObject);
-
-    for (auto &floatValue : floatArray) {
-        std::cout << floatValue << ", ";
+void passArray(uintptr_t ptr, size_t length) {
+    double *arr = reinterpret_cast<double*>(ptr);
+    for (int i = 0; i < length; i++) {
+        arr[i] *= 2;
     }
-    std::cout << std::endl;
 }
 
 int main() {

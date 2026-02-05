@@ -274,7 +274,7 @@ export class Rasterizer {
             onRuntimeInitialized: () => {
                 console.log('Wasm Module loaded');
             },
-            print: function(text) {
+            print: (text: any) => {
                 console.log('c++: ' + text);
             },
             // Add other configurations like canvas, wasmBinary, etc. as needed
@@ -283,8 +283,15 @@ export class Rasterizer {
 
         MainModuleFactory(moduleArgs).then((Module) => {
             this.module = Module;
+            let arr = new Float64Array([1, 2, 3, 4, 5]);
+            const ptr = this.module!._malloc(arr.length * arr.BYTES_PER_ELEMENT);
+            this.module!.HEAPF64.set(arr, ptr / 8);
+            this.module!.test(ptr, 5);
+            for (let i = 0; i < arr.length; i++) {
+                console.log(this.module!.getValue(ptr + 8 * i, "double"));
+            }
+            this.module!._free(ptr);
             this.module!.helloWorld();
-            this.module!.test(new Float64Array([0, 1.1, 2.2, 3.3]));
         });
     }
 }

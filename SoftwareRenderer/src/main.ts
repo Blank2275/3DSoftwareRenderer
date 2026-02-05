@@ -63,14 +63,28 @@ function normalsShader(output: Float64Array, position: Vector, faceAttriubutes: 
     output[3] = 1;
 }
 
+function colorLerp(colorA: Vector, colorB: Vector, amount: number, output: Vector) {
+    if (amount < 0) amount = 0;
+    if (amount > 1) amount = 1;
+    output[0] = (colorB[0] - colorA[0]) * amount + colorA[0];
+    output[1] = (colorB[1] - colorA[1]) * amount + colorA[1];
+    output[0] = (colorB[2] - colorA[2]) * amount + colorA[2];
+}
+
+const blue: Vector = [0.1, 0.3, 0.95];
+const red: Vector = [0.85, 0.1, 0.35];
+const green: Vector = [0.05, 1, 0.25]
+
 function texturesShader(output: Float64Array, position: Vector, faceAttriubutes: Float64Array[], vertexAttributes: Float64Array[], globals: Float64Array[]) {
     const textureCoord = vertexAttributes[0];
     const normal = fromF64(faceAttriubutes[0]);
     sampleTexture(stone, 512, 512, textureCoord[0], textureCoord[1], output);
 
     const lightDirection: Vector = [0, 1, -1];
-    let brightness = (dot(lightDirection, normal) + 1) / 2
+    let brightness = (dot(lightDirection, normal) + 1) / 2;
     brightness = (brightness + 0.6) / 1.6;
+
+    colorLerp(green, red, Math.pow(brightness, 2), output);
 
     output[0] *= brightness;
     output[1] *= brightness;
