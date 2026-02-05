@@ -269,6 +269,19 @@ export class Rasterizer {
         this.depthBuffer.clear(Number.MAX_VALUE)
     }
 
+    float64ArrayToPointer(arr: Float64Array) {
+        const ptr = this.module!._malloc(arr.length * arr.BYTES_PER_ELEMENT);
+        this.module!.HEAPF64.set(arr, ptr / 8);
+        return ptr;
+    }
+
+    pointerToFloat64Array(ptr: number, length: number) {
+        const memoryBuffer = this.module!.wasmMemory.buffer;
+        const bufferAsFloatArray = new Float64Array(memoryBuffer, ptr, length);
+        this.module!._free(ptr);
+        return bufferAsFloatArray;
+    }
+
     initializeWasm() {
         const moduleArgs = {
             onRuntimeInitialized: () => {
@@ -284,13 +297,11 @@ export class Rasterizer {
         MainModuleFactory(moduleArgs).then((Module) => {
             this.module = Module;
             let arr = new Float64Array([1, 2, 3, 4, 5]);
-            const ptr = this.module!._malloc(arr.length * arr.BYTES_PER_ELEMENT);
-            this.module!.HEAPF64.set(arr, ptr / 8);
+            console.log(arr);
+            const ptr = this.float64ArrayToPointer(arr);
             this.module!.test(ptr, 5);
-            for (let i = 0; i < arr.length; i++) {
-                console.log(this.module!.getValue(ptr + 8 * i, "double"));
-            }
-            this.module!._free(ptr);
+            arr = this.pointerToFloat64Array(ptr, arr.length);
+            console.log(arr);
             this.module!.helloWorld();
         });
     }
