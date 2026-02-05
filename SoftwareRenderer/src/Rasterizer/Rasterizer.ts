@@ -12,6 +12,8 @@ export class Rasterizer {
     height: number
     renderBuffer: Buffer
     depthBuffer: Buffer
+    renderBufferPointer: number | null = null;
+    depthBufferPointer: number | null = null;
     module: EmbindModule | null
 
     constructor(width: number, height: number) {
@@ -22,6 +24,101 @@ export class Rasterizer {
         this.depthBuffer = new Buffer(width, height, 1)
 
         this.module = null // only gets a value when webassembly is initialized
+    }
+
+    renderWasm(mesh: Mesh, camera: Camera) {
+        // same setup as normal render
+        let vertices = camera.transformVertices(mesh.vertices);
+        const faces = mesh.faces;
+        const vertexAttributes = mesh.vertexAttributes;
+        const meshFaceAttributes: Float64Array[][] = mesh.faceAttributes;
+        const aspectRatio = this.width / this.height;
+
+        // converts world to screen coordinates
+        const worldToScreen = (vertex: Vector): Vector => {
+            let res: Vector = [0, 0, 0];
+            res[0] = (vertex[0] + 1) / 2 * this.width / aspectRatio;
+            res[1] = (vertex[1] + 1) / 2 * this.height;
+
+            return res;
+        }
+
+        // converts screen to world coordinates
+        const screenToWorld = (vertex: Vector) => {
+            vertex[0] = vertex[0] / this.width * 2 * aspectRatio - 1;
+            vertex[1] = vertex[1] / this.height * 2 - 1;
+        }
+
+        const transformedVertices = camera.projectVertices(vertices);
+
+        for (let a in vertexAttributes) {
+            for (let v in vertices) {
+                const vertex = vertices[v]
+
+                let attribute = vertexAttributes[a][v];
+                for (let element = 0; element < attribute.length; element++) {
+                    attribute[element] /= vertex[2];
+                }
+            }
+        }
+
+        for (let i in faces) { 
+            const face = faces[i];
+
+            const worldVertices: Float64Array = new Float64Array([
+                ...vertices[face[0]],
+                ...vertices[face[1]],
+                ...vertices[face[2]],
+            ]);
+
+            const faceTransformedVertices = new Float64Array([
+                ...transformedVertices[face[0]],
+                ...transformedVertices[face[1]],
+                ...transformedVertices[face[2]],
+            ])
+
+            let faceVertexAttributes: Float64Array[] = [];
+            // flatten vertex attributes into a list of all attributes one after another per vertex
+            for (let vertex = 0; vertex < 3; vertex++) {
+                let attributeList: number[] = [];
+                for (let attribute of vertexAttributes) {
+                    attributeList.concat(...attribute[face[vertex]]);
+                }
+                faceVertexAttributes[vertex] = new Float64Array(attributeList);
+            }
+
+            let faceVertexAttributesPointers = new Int32Array(new Array(faceVertexAttributes.length));
+            for (let attribute in faceVertexAttributes) {
+                faceVertexAttributesPointers[attribute] = this.float64ArrayToPointer(faceVertexAttributes[attribute]);
+            }
+
+            let faceAttributesPointers = new Int32Array(new Array(meshFaceAttributes.length));
+            for (let attribute in meshFaceAttributes) {
+                faceAttributesPointers[attribute] = this.float64ArrayToPointer(meshFaceAttributes[attribute][i]);
+            }
+
+            const worldVerticesPtr = this.float64ArrayToPointer(worldVertices); // always has 9 entries xyz for each vertex
+            const faceTransformedVerticesPtr = this.float64ArrayToPointer(faceTransformedVertices); // always has 9 entries xyz for each vertex
+            const faceAttributesDoublePtr = this.int32ArrayToPointer(faceAttributesPointers);
+            const faceVertexAttributesDoublePtr = this.int32ArrayToPointer(faceVertexAttributesPointers);
+
+            const numFaceAttributes = meshFaceAttributes.length; // we don't care about the size, that should be known by the developer in the shader so we only pass the number of attributes
+            const vertexAttributeSize = faceVertexAttributes[0].length; // 2d array alway has 3 rows so we only need column sizes
+
+            this.module!.render(
+                this.renderBufferPointer,
+                this.depthBufferPointer, 
+                this.width, 
+                this.height,
+                worldVerticesPtr,
+                faceTransformedVerticesPtr,
+                faceAttributesDoublePtr,
+                numFaceAttributes,
+                faceVertexAttributesDoublePtr,
+                vertexAttributeSize,
+            )
+
+        }
     }
 
     /*
@@ -275,11 +372,25 @@ export class Rasterizer {
         return ptr;
     }
 
+    int32ArrayToPointer(arr: Int32Array) {
+        const ptr = this.module!._malloc(arr.length * arr.BYTES_PER_ELEMENT);
+        this.module!.HEAPI32.set(arr, ptr / 4);
+        return ptr;
+    }
+
     pointerToFloat64Array(ptr: number, length: number) {
         const memoryBuffer = this.module!.wasmMemory.buffer;
         const bufferAsFloatArray = new Float64Array(memoryBuffer, ptr, length);
-        this.module!._free(ptr);
         return bufferAsFloatArray;
+    }
+
+    freePointer(ptr: number) {
+        this.module!._free(ptr);
+    } 
+
+    createBufferPointers() {
+        this.renderBufferPointer = this.float64ArrayToPointer(this.renderBuffer.values);
+        this.depthBufferPointer = this.float64ArrayToPointer(this.depthBuffer.values);
     }
 
     initializeWasm() {
