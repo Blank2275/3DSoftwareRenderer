@@ -2,13 +2,13 @@ export class Buffer {
     width: number;
     height: number;
     dims: number;
-    values: Float64Array; // [colors][columns][rows]
+    values: Uint8ClampedArray; // [colors][columns][rows]
 
     constructor(width: number, height: number, dims: number) {
         this.width = width;
         this.height = height;
         this.dims = dims;
-        this.values = new Float64Array(width * height * dims);
+        this.values = new Uint8ClampedArray(width * height * dims);
     }
 
     /*
@@ -21,7 +21,7 @@ export class Buffer {
     /*
     Sets the value at a given coordinate to a Float64Array
      */
-    setElement(x: number, y: number, vals: Float64Array) {
+    setElement(x: number, y: number, vals: Uint8ClampedArray) {
         let startIndex = this.indexForElement(x, y);
 
         for (let i = 0; i < this.dims; i++) {
@@ -36,7 +36,7 @@ export class Buffer {
     /*
     Gets the value at a given coordinate as a Float64Array
      */
-    getElement(x: number, y: number, output: Float64Array) {
+    getElement(x: number, y: number, output: Uint8ClampedArray) {
         let startIndex = this.indexForElement(x, y);
 
         for (let i = 0; i < this.dims; i++) {
@@ -44,7 +44,7 @@ export class Buffer {
         }
     }
 
-    getSingleElement(x: number, y: number, output: Float64Array) {
+    getSingleElement(x: number, y: number, output: Uint8ClampedArray) {
         output[0] = this.values[y * this.width + x];
     }
 
@@ -55,7 +55,7 @@ export class Buffer {
         let i = this.values.length - 1;
         this.values[0] = to;
         while (--i) {
-            this.values[i] = to;
+            // this.values[i] = to;
         }
     }
 }

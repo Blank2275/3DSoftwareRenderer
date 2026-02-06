@@ -110,10 +110,11 @@ function sampleTexture(texture: Float64Array, width: number, height: number, x: 
 function renderBuffer(buffer: Buffer, context: CanvasRenderingContext2D) {
     const imageData = context.getImageData(0, 0, buffer.width, buffer.height);
 
-    const dataLength = imageData.data.length;
-    for (let i = 0; i < dataLength; i++) {
-        imageData.data[i] = Math.max(Math.min(buffer.values[i] * 255, 255), 0);
-    }
+    // const dataLength = imageData.data.length;
+    // for (let i = 0; i < dataLength; i++) {
+    //     imageData.data[i] = Math.max(Math.min(buffer.values[i] * 255, 255), 0);
+    // }
+    imageData.data.set(buffer.values)
 
     context.putImageData(imageData, 0, 0);
 }
@@ -172,7 +173,7 @@ function generateMovementVector(theta: number, movementSpeed: number): Vector {
     window.setZeroTimeout = setZeroTimeout;
 })();
 
-window.onload = function () {
+window.onload = async function () {
     let canvas: HTMLCanvasElement | null = document.getElementById("canvas") as (HTMLCanvasElement | null);
     if (!canvas) return;
 
@@ -188,7 +189,8 @@ window.onload = function () {
     const keys: {[key: string]: boolean} = {}
 
     const rasterizer = new Rasterizer(width, height);
-    rasterizer.initializeWasm();
+    await rasterizer.initializeWasm();
+    rasterizer.createBufferPointers();
 
     const loopContext = {
         ctx,
@@ -204,7 +206,7 @@ window.onload = function () {
         lastRun: performance.now(),
         animate: function () {
             ctx.clearRect(0, 0, width, height);
-            this.rasterizer.clear();
+            this.rasterizer.clearRenderBufferWasm();
 
             const pyramidVertices: Vector[] = [
                 [-1, 0, -1],
@@ -250,7 +252,8 @@ window.onload = function () {
             pyramidMesh.addVertexAttribute(vertexTextureCoords);
             pyramidMesh.translate(-1, -2, 5)
 
-            this.rasterizer.render(pyramidMesh, this.camera, texturesShader);
+            // this.rasterizer.render(pyramidMesh, this.camera, texturesShader);
+            this.rasterizer.renderWasm(pyramidMesh, this.camera);
             renderBuffer(this.rasterizer.renderBuffer, this.ctx);
 
 

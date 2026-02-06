@@ -27,6 +27,16 @@ export class Rasterizer {
     }
 
     renderWasm(mesh: Mesh, camera: Camera) {
+        if (!this.module) {
+            throw new Error("You must call initializeWasm before renderWasm");
+            return;
+        }
+
+        if (!this.renderBufferPointer) {
+            throw new Error("You must call createBufferPointers before renderWasm");
+            return;
+        }
+
         // same setup as normal render
         let vertices = camera.transformVertices(mesh.vertices);
         const faces = mesh.faces;
@@ -88,8 +98,8 @@ export class Rasterizer {
             }
 
             let faceVertexAttributesPointers = new Int32Array(new Array(faceVertexAttributes.length));
-            for (let attribute in faceVertexAttributes) {
-                faceVertexAttributesPointers[attribute] = this.float64ArrayToPointer(faceVertexAttributes[attribute]);
+            for (let vertex in faceVertexAttributes) {
+                faceVertexAttributesPointers[vertex] = this.float64ArrayToPointer(faceVertexAttributes[vertex]);
             }
 
             let faceAttributesPointers = new Int32Array(new Array(meshFaceAttributes.length));
@@ -106,8 +116,8 @@ export class Rasterizer {
             const vertexAttributeSize = faceVertexAttributes[0].length; // 2d array alway has 3 rows so we only need column sizes
 
             this.module!.render(
-                this.renderBufferPointer,
-                this.depthBufferPointer, 
+                this.renderBufferPointer!,
+                this.depthBufferPointer!, 
                 this.width, 
                 this.height,
                 worldVerticesPtr,
@@ -118,6 +128,19 @@ export class Rasterizer {
                 vertexAttributeSize,
             )
 
+            this.renderBuffer.values = this.pointerToUint8ClampedArray(this.renderBufferPointer, this.renderBuffer.values.length);
+
+            // free memory we have allocated to avoid memory leak
+            this.freePointer(worldVerticesPtr);
+            this.freePointer(faceTransformedVerticesPtr);
+            for (let attribute in meshFaceAttributes) {
+                this.freePointer(faceAttributesPointers[attribute]);
+            }
+            this.freePointer(faceAttributesDoublePtr);
+            for (let vertex in faceVertexAttributes) {
+                this.freePointer(faceVertexAttributesPointers[vertex]);
+            }
+            this.freePointer(faceVertexAttributesDoublePtr);
         }
     }
 
@@ -374,15 +397,22 @@ export class Rasterizer {
 
     int32ArrayToPointer(arr: Int32Array) {
         const ptr = this.module!._malloc(arr.length * arr.BYTES_PER_ELEMENT);
-        this.module!.HEAPI32.set(arr, ptr / 4);
+        this.module!.HEAP32.set(arr, ptr / 4);
         return ptr;
     }
 
+    pointerToUint8ClampedArray(ptr: number, length: number) {
+        const memoryBuffer = this.module!.HEAPU8.buffer;
+        return new Uint8ClampedArray(memoryBuffer, ptr, length);
+    }
+
     pointerToFloat64Array(ptr: number, length: number) {
-        const memoryBuffer = this.module!.wasmMemory.buffer;
+        const memoryBuffer = this.module!.HEAPF64.buffer;
         const bufferAsFloatArray = new Float64Array(memoryBuffer, ptr, length);
         return bufferAsFloatArray;
     }
+
+    pointerToUnigned
 
     freePointer(ptr: number) {
         this.module!._free(ptr);
@@ -393,7 +423,12 @@ export class Rasterizer {
         this.depthBufferPointer = this.float64ArrayToPointer(this.depthBuffer.values);
     }
 
-    initializeWasm() {
+    clearRenderBufferWasm() {
+        if (!this.renderBufferPointer) return;
+        this.module!.clearRenderBuffer(this.renderBufferPointer!, 0, this.width, this.height);
+    }
+
+    initializeWasm(): Promise<void> {
         const moduleArgs = {
             onRuntimeInitialized: () => {
                 console.log('Wasm Module loaded');
@@ -405,15 +440,11 @@ export class Rasterizer {
             // canvas: document.getElementById('my-canvas')
         };
 
-        MainModuleFactory(moduleArgs).then((Module) => {
-            this.module = Module;
-            let arr = new Float64Array([1, 2, 3, 4, 5]);
-            console.log(arr);
-            const ptr = this.float64ArrayToPointer(arr);
-            this.module!.test(ptr, 5);
-            arr = this.pointerToFloat64Array(ptr, arr.length);
-            console.log(arr);
-            this.module!.helloWorld();
+        return new Promise((resolve, reject) => {
+            MainModuleFactory(moduleArgs).then((Module) => {
+                this.module = Module;
+                resolve();
+            });
         });
     }
 }
