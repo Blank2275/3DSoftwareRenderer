@@ -183,7 +183,9 @@ window.onload = async function () {
     canvas.width = width;
     canvas.height = height;
 
-    let ctx = canvas.getContext("2d")
+    let ctx = canvas.getContext("2d", {
+        willReadFrequently: true,
+    });
     if (!ctx) return;
 
     const keys: {[key: string]: boolean} = {}
@@ -220,8 +222,8 @@ window.onload = async function () {
             ]
 
             const pyramidFaces: number[][] = [
-                [0, 1, 3], // bottom
-                [3, 1, 2],
+                [3, 1, 0], // bottom
+                [2, 1, 3],
                 [0, 1, 4], // back
                 [1, 2, 5], // right
                 [2, 3, 6], // front
