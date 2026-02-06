@@ -113,7 +113,7 @@ void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, s
     int CY2 = C2 + DX23 * (miny << 4) - DY23 * (minx << 4);
     int CY3 = C3 + DX31 * (miny << 4) - DY31 * (minx << 4);
 
-    for (int y = miny; y < maxy; y++) {
+    for (int y = top; y < bottom; y++) {
         if (y < 0 || y >= height) {
             CY1 += FDX12;
             CY2 += FDX23;
@@ -124,7 +124,7 @@ void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, s
         int CX1 = CY1;
         int CX2 = CY2;
         int CX3 = CY3;
-        for (int x = minx; x < maxx; x++) {
+        for (int x = left; x < right; x++) {
             Vector worldCoords = {static_cast<double>(x), static_cast<double>(y), 0};
             screenToWorld(worldCoords, width, height, aspectRatio);
 

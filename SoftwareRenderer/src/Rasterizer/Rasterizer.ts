@@ -59,7 +59,10 @@ export class Rasterizer {
             vertex[1] = vertex[1] / this.height * 2 - 1;
         }
 
-        const transformedVertices = camera.projectVertices(vertices);
+        const clippedScene = camera.clipVertices(vertices, faces);
+        const clippedVertices = clippedScene.vertices;
+        const clippedFaces = clippedScene.faces;
+        const transformedVertices = camera.projectVertices(clippedVertices);
 
         for (let a in vertexAttributes) {
             for (let v in vertices) {
@@ -72,13 +75,13 @@ export class Rasterizer {
             }
         }
 
-        for (let i in faces) { 
-            const face = faces[i];
+        for (let i in clippedFaces) { 
+            const face = clippedFaces[i];
 
             const worldVertices: Float64Array = new Float64Array([
-                ...vertices[face[0]],
-                ...vertices[face[1]],
-                ...vertices[face[2]],
+                ...transformedVertices[face[0]],
+                ...transformedVertices[face[1]],
+                ...transformedVertices[face[2]],
             ]);
 
             const faceTransformedVertices = new Float64Array([
@@ -87,33 +90,33 @@ export class Rasterizer {
                 ...transformedVertices[face[2]],
             ])
 
-            let faceVertexAttributes: Float64Array[] = [];
-            // flatten vertex attributes into a list of all attributes one after another per vertex
-            for (let vertex = 0; vertex < 3; vertex++) {
-                let attributeList: number[] = [];
-                for (let attribute of vertexAttributes) {
-                    attributeList.concat(...attribute[face[vertex]]);
-                }
-                faceVertexAttributes[vertex] = new Float64Array(attributeList);
-            }
+            // let faceVertexAttributes: Float64Array[] = [];
+            // // flatten vertex attributes into a list of all attributes one after another per vertex
+            // for (let vertex = 0; vertex < 3; vertex++) {
+            //     let attributeList: number[] = [];
+            //     for (let attribute of vertexAttributes) {
+            //         attributeList.concat(...attribute[face[vertex]]);
+            //     }
+            //     faceVertexAttributes[vertex] = new Float64Array(attributeList);
+            // }
 
-            let faceVertexAttributesPointers = new Int32Array(new Array(faceVertexAttributes.length));
-            for (let vertex in faceVertexAttributes) {
-                faceVertexAttributesPointers[vertex] = this.float64ArrayToPointer(faceVertexAttributes[vertex]);
-            }
+            let faceVertexAttributesPointers = new Int32Array(new Array(0/*faceVertexAttributes.length*/));
+            // for (let vertex in faceVertexAttributes) {
+            //     faceVertexAttributesPointers[vertex] = this.float64ArrayToPointer(faceVertexAttributes[vertex]);
+            // }
 
-            let faceAttributesPointers = new Int32Array(new Array(meshFaceAttributes.length));
-            for (let attribute in meshFaceAttributes) {
-                faceAttributesPointers[attribute] = this.float64ArrayToPointer(meshFaceAttributes[attribute][i]);
-            }
+            let faceAttributesPointers = new Int32Array(new Array(0/*meshFaceAttributes.length*/));
+            // for (let attribute in meshFaceAttributes) {
+            //     faceAttributesPointers[attribute] = this.float64ArrayToPointer(meshFaceAttributes[attribute][i]);
+            // }
 
-            const worldVerticesPtr = this.float64ArrayToPointer(worldVertices); // always has 9 entries xyz for each vertex
+            const worldVerticesPtr = 0; //this.float64ArrayToPointer(worldVertices); // always has 9 entries xyz for each vertex
             const faceTransformedVerticesPtr = this.float64ArrayToPointer(faceTransformedVertices); // always has 9 entries xyz for each vertex
-            const faceAttributesDoublePtr = this.int32ArrayToPointer(faceAttributesPointers);
-            const faceVertexAttributesDoublePtr = this.int32ArrayToPointer(faceVertexAttributesPointers);
+            const faceAttributesDoublePtr = 0;//this.int32ArrayToPointer(faceAttributesPointers);
+            const faceVertexAttributesDoublePtr =  0;//this.int32ArrayToPointer(faceVertexAttributesPointers);
 
             const numFaceAttributes = meshFaceAttributes.length; // we don't care about the size, that should be known by the developer in the shader so we only pass the number of attributes
-            const vertexAttributeSize = faceVertexAttributes[0].length; // 2d array alway has 3 rows so we only need column sizes
+            const vertexAttributeSize = 0;//faceVertexAttributes[0].length; // 2d array alway has 3 rows so we only need column sizes
 
             this.module!.render(
                 this.renderBufferPointer!,
@@ -131,16 +134,16 @@ export class Rasterizer {
             this.renderBuffer.values = this.pointerToUint8ClampedArray(this.renderBufferPointer, this.renderBuffer.values.length);
 
             // free memory we have allocated to avoid memory leak
-            this.freePointer(worldVerticesPtr);
+            // this.freePointer(worldVerticesPtr);
             this.freePointer(faceTransformedVerticesPtr);
-            for (let attribute in meshFaceAttributes) {
-                this.freePointer(faceAttributesPointers[attribute]);
-            }
-            this.freePointer(faceAttributesDoublePtr);
-            for (let vertex in faceVertexAttributes) {
-                this.freePointer(faceVertexAttributesPointers[vertex]);
-            }
-            this.freePointer(faceVertexAttributesDoublePtr);
+            // for (let attribute in meshFaceAttributes) {
+            //     this.freePointer(faceAttributesPointers[attribute]);
+            // }
+            // this.freePointer(faceAttributesDoublePtr);
+            // for (let vertex in faceVertexAttributes) {
+            //     this.freePointer(faceVertexAttributesPointers[vertex]);
+            // }
+            // this.freePointer(faceVertexAttributesDoublePtr);
         }
     }
 

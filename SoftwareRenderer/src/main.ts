@@ -199,7 +199,7 @@ window.onload = async function () {
         lastRunTime: new Date().getTime(),
         fpsDisplay: document.getElementById("fps"),
         rasterizer: rasterizer,
-        camera: new Camera(70, 0.1, 1000),
+        camera: new Camera(100, 0.1, 1000),
         renderBuffer: new Buffer(width, height, 4),
         position: [0, 0, -10],
         rotation: [0, 0, 0],
