@@ -95,7 +95,7 @@ export class Camera {
         const planes: Plane[] = [
             { // near
                 normal: [0, 0, 1],
-                D: -this.near
+                D: this.near
             },
             { // left
                 normal: [invsqrt2, 0, invsqrt2],
@@ -128,10 +128,6 @@ export class Camera {
             }
             newVertices = planeClippedVertices;
         }
-
-        console.log(newVertices.length)
-
-        // console.log(newVertices)
 
         // generate new indices
         const newIndices: number[][] = [];
@@ -193,17 +189,17 @@ export class Camera {
             let B: Vector;
             let C: Vector;
 
-            if (d0 < 0) {
+            if (d0 <= 0) {
                 C = faceVertices[0];
                 A = faceVertices[1];
                 B = faceVertices[2];
             }
-            if (d1 < 0) {
+            if (d1 <= 0) {
                 C = faceVertices[1];
                 A = faceVertices[2];
                 B = faceVertices[0];
             }
-            if (d2 < 0) {
+            if (d2 <= 0) {
                 C = faceVertices[2];
                 A = faceVertices[0];
                 B = faceVertices[1];
