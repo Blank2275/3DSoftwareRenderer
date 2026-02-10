@@ -9,6 +9,12 @@ interface Plane {
 interface ClippedScene {
     vertices: Vector[],
     faces: number[][],
+    vertexAttributes: Float64Array[][]
+}
+
+interface ClippedTriangle {
+    vertices: Vector[],
+    vertexAttributes: Float64Array[][]
 }
 
 // contains information about the cameras position and rotation,
@@ -90,7 +96,7 @@ export class Camera {
         return projectedVertices;
     }
 
-    clipVertices(vertices: Vector[], faces: number[][]): ClippedScene {
+    clipVertices(vertices: Vector[], faces: number[][], vertexAttributes: Float64Array[][]): ClippedScene {
         let invsqrt2 = 1 / Math.sqrt(2);
         const planes: Plane[] = [
             { // near
@@ -120,28 +126,64 @@ export class Camera {
             newVertices.push(vertices[face[0]], vertices[face[1]], vertices[face[2]]);
         }
 
+        let newVertexAttributes: Float64Array[][] = [];
+        for (let attribute of vertexAttributes) {
+            newVertexAttributes.push([]);
+            for (let face of faces) {
+                newVertexAttributes[newVertexAttributes.length - 1].push(this.cloneAttribute(attribute[face[0]]), this.cloneAttribute(attribute[face[1]]), this.cloneAttribute(attribute[face[2]]));
+            }
+        }
+
         for (let plane of planes) {
             const planeClippedVertices: Vector[] = [];
+            const planeClippedVertexAttributes: Float64Array[][] = new Array(vertexAttributes.length);
+            for (let i = 0; i < vertexAttributes.length; i++) {
+                planeClippedVertexAttributes[i] = [];
+            }
             for (let i = 0; i < newVertices.length; i += 3) {
                 let faceVertices = [newVertices[i], newVertices[i + 1], newVertices[i + 2]];
-                planeClippedVertices.push(...this.clipTriangleAgainstPlane(faceVertices, plane));
+                let faceVertexAttributes: Float64Array[][] = new Array(3);
+                for (let vertex = 0; vertex < 3; vertex++) {
+                    faceVertexAttributes[vertex] = [];
+                    for (let attribute = 0; attribute < vertexAttributes.length; attribute++) {
+                        faceVertexAttributes[vertex].push(newVertexAttributes[attribute][i + vertex]);
+                    }
+                }
+
+                const clippedTriangle = this.clipTriangleAgainstPlane(faceVertices, faceVertexAttributes, plane);
+                planeClippedVertices.push(...clippedTriangle.vertices);
+                for (let attribute = 0; attribute < vertexAttributes.length; attribute++) {
+                    for (let vertex = 0; vertex < clippedTriangle.vertexAttributes.length; vertex++) {
+                        planeClippedVertexAttributes[attribute].push(clippedTriangle.vertexAttributes[vertex][attribute]);
+                    }
+                }
             }
             newVertices = planeClippedVertices;
+            newVertexAttributes = planeClippedVertexAttributes;
         }
 
         // generate new indices
         const newIndices: number[][] = [];
         for (let i = 0; i < newVertices.length; i += 3) {
-            newIndices.push([i, i + 1, i + 2]);
+            newIndices.push([i + 0, i + 1, i + 2]);
         }
 
         return {
             vertices: newVertices,
             faces: newIndices,
+            vertexAttributes: newVertexAttributes
         }
     }
 
-    clipTriangleAgainstPlane(faceVertices: Vector[], plane: Plane): Vector[] {
+    cloneAttribute(vertexAttribute: Float64Array) {
+        return vertexAttribute.slice();
+    }
+
+    cloneAttributes(vertexAttributes: Float64Array[]) {
+        return vertexAttributes.map((vertexAttribute) => vertexAttribute.slice());
+    }
+
+    clipTriangleAgainstPlane(faceVertices: Vector[], vertexAttributes: Float64Array[][], plane: Plane): ClippedTriangle {
         const d0 = this.signedDistance(plane, faceVertices[0]);
         const d1 = this.signedDistance(plane, faceVertices[1]);
         const d2 = this.signedDistance(plane, faceVertices[2]);
@@ -152,67 +194,98 @@ export class Camera {
         const numVerticesPositive = d0Sign + d1Sign + d2Sign;
 
         if (numVerticesPositive === 3) { // all visible
-            return faceVertices;
+            return {
+                vertices: faceVertices,
+                vertexAttributes: vertexAttributes,
+            };
         } else if (numVerticesPositive === 0) { // none visible
-            return [];
+            return {
+                vertices: [],
+                vertexAttributes: [],
+            };
         } else if (numVerticesPositive === 1) {
-            let A: Vector;
-            let B: Vector;
-            let C: Vector;
+            let Aindex: number = -1;
+            let Bindex: number = -1;
+            let Cindex: number = -1;
 
             if (d0 > 0) {
-                A = faceVertices[0];
-                B = faceVertices[1];
-                C = faceVertices[2];
+                Aindex = 0;
+                Bindex = 1;
+                Cindex = 2;
             }
             if (d1 > 0) {
-                A = faceVertices[1];
-                B = faceVertices[2];
-                C = faceVertices[0];
+                Aindex = 1;
+                Bindex = 2;
+                Cindex= 0;
             }
             if (d2 > 0) {
-                A = faceVertices[2];
-                B = faceVertices[0];
-                C = faceVertices[1];
+                Aindex = 2;
+                Bindex = 0;
+                Cindex = 1;
             }
 
-            // we know that they must be initialized but the type checker is not smart enough
-            //@ts-ignore
-            const BPrime = this.intersection(A, B, plane);
-            //@ts-ignore
-            const CPrime = this.intersection(A, C, plane);
+            let A: Vector = faceVertices[Aindex];
+            let B: Vector = faceVertices[Bindex];
+            let C: Vector = faceVertices[Cindex];
 
-            //@ts-ignore
-            return [A, BPrime, CPrime]
+            const AVAS = this.cloneAttributes(vertexAttributes[Aindex]);
+            const BPrime = this.intersection(A, B, plane);
+            const BPrimeVAS = this.interpolateVertexAttributes(vertexAttributes, Aindex, Bindex, A, B, plane);
+            const CPrime = this.intersection(A, C, plane);
+            const CPrimeVAS = this.interpolateVertexAttributes(vertexAttributes, Aindex, Cindex, A, C, plane);
+
+            return {
+                vertices: [A, BPrime, CPrime], 
+                vertexAttributes: [
+                    this.cloneAttributes(AVAS), 
+                    this.cloneAttributes(BPrimeVAS), 
+                    this.cloneAttributes(CPrimeVAS)
+                ]
+            }
         } else {
-            let A: Vector;
-            let B: Vector;
-            let C: Vector;
+            let Aindex: number = -1;
+            let Bindex: number = -1;
+            let Cindex: number = -1;
 
             if (d0 <= 0) {
-                C = faceVertices[0];
-                A = faceVertices[1];
-                B = faceVertices[2];
+                Cindex = 0;
+                Aindex = 1;
+                Bindex = 2;
             }
             if (d1 <= 0) {
-                C = faceVertices[1];
-                A = faceVertices[2];
-                B = faceVertices[0];
+                Cindex = 1;
+                Aindex = 2
+                Bindex = 0;
             }
             if (d2 <= 0) {
-                C = faceVertices[2];
-                A = faceVertices[0];
-                B = faceVertices[1];
+                Cindex = 2;
+                Aindex = 0;
+                Bindex = 1;
             }
 
-            // we know that they must be initialized but the type checker is not smart enough
-            //@ts-ignore
-            const APrime = this.intersection(A, C, plane);
-            //@ts-ignore
-            const BPrime = this.intersection(B, C, plane);
 
-            //@ts-ignore
-            return [A, B, APrime, APrime, B, BPrime]
+            let A: Vector = faceVertices[Aindex];
+            let B: Vector = faceVertices[Bindex];
+            let C: Vector = faceVertices[Cindex];
+
+            const AVAS = vertexAttributes[Aindex];
+            const BVAS = vertexAttributes[Bindex];
+            const APrime = this.intersection(A, C, plane);
+            const APrimeVAS = this.interpolateVertexAttributes(vertexAttributes, Aindex, Cindex, A, C, plane);
+            const BPrime = this.intersection(B, C, plane);
+            const BPrimeVAS = this.interpolateVertexAttributes(vertexAttributes, Bindex, Cindex, B, C, plane);
+
+            return {
+                vertices: [A, B, APrime, APrime, B, BPrime],
+                vertexAttributes: [ // create shallow copies of each atrribute so we don't modify divide them by z multiple times
+                    this.cloneAttributes(AVAS),
+                    this.cloneAttributes(BVAS),
+                    this.cloneAttributes(APrimeVAS),
+                    this.cloneAttributes(APrimeVAS),
+                    this.cloneAttributes(BVAS),
+                    this.cloneAttributes(BPrimeVAS)
+                ]
+            };
         }
     }
 
@@ -224,5 +297,25 @@ export class Camera {
     intersection(a: Vector, b: Vector, plane: Plane) {
         const t = (-plane.D - dot(plane.normal, a)) / dot(plane.normal, sub(b, a))
         return add(a, mul(sub(b, a), t));
+    }
+
+    interpolateVertexAttributes(vertexAttributes: Float64Array[][], indexA: number, indexB: number, vertexA: Vector, vertexB: Vector, plane: Plane): Float64Array[] {
+        const t = (-plane.D - dot(plane.normal, vertexA)) / dot(plane.normal, sub(vertexB, vertexA))
+
+        const interpolatedAttributes: Float64Array[] = [];
+        for (let attribute in vertexAttributes[0]) {
+            const vertexAttributeA = vertexAttributes[indexA][attribute];
+            const vertexAttributeB = vertexAttributes[indexB][attribute];
+            const interpolatedVertexAttribute = new Float64Array(vertexAttributeA.length);
+
+            for (let element = 0; element < vertexAttributeA.length; element++) {
+                // interpolate
+                interpolatedVertexAttribute[element] = vertexAttributeA[element] + t * (vertexAttributeB[element] - vertexAttributeA[element]);
+            }
+
+            interpolatedAttributes.push(interpolatedVertexAttribute);
+        }
+
+        return interpolatedAttributes;
     }
 }

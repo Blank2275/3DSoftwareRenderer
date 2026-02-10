@@ -75,23 +75,27 @@ const blue: Vector = [0.1, 0.3, 0.95];
 const red: Vector = [0.85, 0.1, 0.35];
 const green: Vector = [0.05, 1, 0.25]
 
-function texturesShader(output: Float64Array, position: Vector, faceAttriubutes: Float64Array[], vertexAttributes: Float64Array[], globals: Float64Array[]) {
+function texturesShader(output: Uint8ClampedArray, position: Vector, faceAttriubutes: Float64Array[], vertexAttributes: Float64Array[], globals: Float64Array[]) {
     const textureCoord = vertexAttributes[0];
-    const normal = fromF64(faceAttriubutes[0]);
+    // const normal = fromF64(faceAttriubutes[0]);
     sampleTexture(stone, 512, 512, textureCoord[0], textureCoord[1], output);
+    // output[0] = (textureCoord[0] + 1) / 4 * 255;
+    // output[1] = (textureCoord[1] + 1) / 4 * 255;
+    // output[2] = 100;
 
     const lightDirection: Vector = [0, 1, -1];
-    let brightness = (dot(lightDirection, normal) + 1) / 2;
-    brightness = (brightness + 0.6) / 1.6;
+    // let brightness = (dot(lightDirection, normal) + 1) / 2;
+    // brightness = (brightness + 0.6) / 1.6;
 
-    colorLerp(green, red, Math.pow(brightness, 2), output);
+    // colorLerp(green, red, Math.pow(brightness, 2), output);
 
-    output[0] *= brightness;
-    output[1] *= brightness;
-    output[2] *= brightness;
+    // output[0] = brightness * 255;
+    // output[1] = brightness * 255;
+    // output[2] = brightness * 255;
+    // output[3] = 255;
 }
 
-function sampleTexture(texture: Float64Array, width: number, height: number, x: number, y: number, output: Float64Array) {
+function sampleTexture(texture: Float64Array, width: number, height: number, x: number, y: number, output: Uint8ClampedArray) {
     x = Math.floor(x * width);
     y = Math.floor(y * height);
 
@@ -100,10 +104,10 @@ function sampleTexture(texture: Float64Array, width: number, height: number, x: 
     y = Math.abs(y % height);
 
     let index = y * width * 4 + x * 4;
-    output[0] = texture[index];
-    output[1] = texture[index + 1];
-    output[2] = texture[index + 2];
-    output[3] = 1;
+    output[0] = texture[index] * 255;
+    output[1] = texture[index + 1] * 255;
+    output[2] = texture[index + 2] * 255;
+    output[3] = 255;
 }
 
 // renders a buffer with dims = 4 to a canvas context
@@ -208,7 +212,7 @@ window.onload = async function () {
         lastRun: performance.now(),
         animate: function () {
             ctx.clearRect(0, 0, width, height);
-            this.rasterizer.clearRenderBufferWasm();
+            this.rasterizer.clear();
 
             const pyramidVertices: Vector[] = [
                 [-1, 0, -1],
@@ -230,19 +234,11 @@ window.onload = async function () {
                 [3, 0, 7], // left
             ]
 
-            const pyramidVertexColors = [
-                    new Float64Array([0.8, 0.1, 0.2]),
-                    new Float64Array([0.6, 0.3, 0.2]),
-                    new Float64Array([0.4, 0.5, 0.2]),
-                    new Float64Array([0.2, 0.7, 0.2]),
-                    new Float64Array([0.2, 0.1, 0.8]),
-                ]
-
             const vertexTextureCoords: Float64Array[] = [
                 new Float64Array([0, 0]),
-                new Float64Array([1, 0]),
-                new Float64Array([1, 1]),
-                new Float64Array([0, 1]),
+                new Float64Array([0.5, 0]),
+                new Float64Array([0.5, 0.5]),
+                new Float64Array([0, 0.5]),
                 new Float64Array([0.5, -1]), // back
                 new Float64Array([-1, 0.5]), // right
                 new Float64Array([0.5, 2]), // front
@@ -254,8 +250,8 @@ window.onload = async function () {
             pyramidMesh.addVertexAttribute(vertexTextureCoords);
             pyramidMesh.translate(-1, -2, 5)
 
-            // this.rasterizer.render(pyramidMesh, this.camera, texturesShader);
-            this.rasterizer.renderWasm(pyramidMesh, this.camera);
+            this.rasterizer.render(pyramidMesh, this.camera, texturesShader);
+            // this.rasterizer.renderWasm(pyramidMesh, this.camera);
             renderBuffer(this.rasterizer.renderBuffer, this.ctx);
 
 

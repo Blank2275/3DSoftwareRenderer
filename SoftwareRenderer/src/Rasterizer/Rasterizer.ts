@@ -1,4 +1,4 @@
-import {Buffer} from "../Buffer.ts";
+import {Buffer, Float64Buffer} from "../Buffer.ts";
 import {Shader} from "../Shader.ts";
 import {Mesh} from "./Mesh.ts";
 import {Vector} from "../Math/Vector.ts";
@@ -11,7 +11,7 @@ export class Rasterizer {
     width: number
     height: number
     renderBuffer: Buffer
-    depthBuffer: Buffer
+    depthBuffer: Float64Buffer
     renderBufferPointer: number | null = null;
     depthBufferPointer: number | null = null;
     module: EmbindModule | null
@@ -21,7 +21,7 @@ export class Rasterizer {
         this.height = height
 
         this.renderBuffer = new Buffer(width, height, 4)
-        this.depthBuffer = new Buffer(width, height, 1)
+        this.depthBuffer = new Float64Buffer(width, height, 1)
 
         this.module = null // only gets a value when webassembly is initialized
     }
@@ -154,7 +154,7 @@ export class Rasterizer {
     render(mesh: Mesh, camera: Camera, shader: Shader) {
         let vertices = camera.transformVertices(mesh.vertices);
         const faces = mesh.faces;
-        const vertexAttributes = mesh.vertexAttributes;
+        let vertexAttributes = mesh.vertexAttributes;
         const meshFaceAttributes: Float64Array[][] = mesh.faceAttributes;
         const aspectRatio = this.width / this.height;
 
@@ -173,11 +173,15 @@ export class Rasterizer {
             vertex[1] = vertex[1] / this.height * 2 - 1;
         }
 
-        const transformedVertices = camera.projectVertices(vertices);
+        const clippedScene = camera.clipVertices(vertices, faces, vertexAttributes);
+        const clippedVertices = clippedScene.vertices;
+        const clippedFaces = clippedScene.faces;
+        vertexAttributes = clippedScene.vertexAttributes;
+        const transformedVertices = camera.projectVertices(clippedVertices);
 
         for (let a in vertexAttributes) {
-            for (let v in vertices) {
-                const vertex = vertices[v]
+            for (let v in clippedVertices) {
+                const vertex = clippedVertices[v]
 
                 let attribute = vertexAttributes[a][v];
                 for (let element = 0; element < attribute.length; element++) {
@@ -186,14 +190,14 @@ export class Rasterizer {
             }
         }
 
-        for (let i in faces) {
-            const face = faces[i];
+        for (let i in clippedFaces) {
+            const face: Vector = clippedFaces[i] as Vector;
             let faceAttributes: Float64Array[] = [];
 
             // the world position of vertices
-            const worldA = vertices[face[0]];
-            const worldB = vertices[face[1]];
-            const worldC = vertices[face[2]];
+            const worldA = clippedVertices[face[0]];
+            const worldB = clippedVertices[face[1]];
+            const worldC = clippedVertices[face[2]];
 
             // used for interpolating x and y positions per pixel
             const interpolateVertexA = [...worldA]
@@ -226,7 +230,7 @@ export class Rasterizer {
             // the area of the projected triangle, useful for vertex attributes and z
             const area = Math.abs(this.edgeFunction(vertexA, vertexB, vertexC));
 
-            let color = new Float64Array(4); // also created here for performance
+            let color = new Uint8ClampedArray(4); // also created here for performance
             let pixelVertexAttributes: Float64Array[] = [];
 
             // [vertexAttribute][vertex]
@@ -414,8 +418,6 @@ export class Rasterizer {
         const bufferAsFloatArray = new Float64Array(memoryBuffer, ptr, length);
         return bufferAsFloatArray;
     }
-
-    pointerToUnigned
 
     freePointer(ptr: number) {
         this.module!._free(ptr);
