@@ -40,33 +40,25 @@ export class Rasterizer {
         // same setup as normal render
         let vertices = camera.transformVertices(mesh.vertices);
         const faces = mesh.faces;
-        const vertexAttributes = mesh.vertexAttributes;
-        const meshFaceAttributes: Float64Array[][] = mesh.faceAttributes;
-        const aspectRatio = this.width / this.height;
+        let vertexAttributes = mesh.vertexAttributes;
+        let meshFaceAttributes: Float64Array[][] = mesh.faceAttributes;
 
-        // converts world to screen coordinates
-        const worldToScreen = (vertex: Vector): Vector => {
-            let res: Vector = [0, 0, 0];
-            res[0] = (vertex[0] + 1) / 2 * this.width / aspectRatio;
-            res[1] = (vertex[1] + 1) / 2 * this.height;
-
-            return res;
-        }
-
-        // converts screen to world coordinates
-        const screenToWorld = (vertex: Vector) => {
-            vertex[0] = vertex[0] / this.width * 2 * aspectRatio - 1;
-            vertex[1] = vertex[1] / this.height * 2 - 1;
-        }
-
-        const clippedScene = camera.clipVertices(vertices, faces);
+        const clippedScene = camera.clipVertices(vertices, faces, vertexAttributes, meshFaceAttributes, camera.fov);
         const clippedVertices = clippedScene.vertices;
         const clippedFaces = clippedScene.faces;
+        vertexAttributes = clippedScene.vertexAttributes;
+        meshFaceAttributes = clippedScene.faceAttributes;
         const transformedVertices = camera.projectVertices(clippedVertices);
 
+        if (!clippedVertices.length) {
+            return; // nothing to render
+        }
+
+        console.log(clippedScene)
+
         for (let a in vertexAttributes) {
-            for (let v in vertices) {
-                const vertex = vertices[v]
+            for (let v in clippedVertices) {
+                const vertex = clippedVertices[v]
 
                 let attribute = vertexAttributes[a][v];
                 for (let element = 0; element < attribute.length; element++) {
@@ -90,33 +82,33 @@ export class Rasterizer {
                 ...transformedVertices[face[2]],
             ])
 
-            // let faceVertexAttributes: Float64Array[] = [];
-            // // flatten vertex attributes into a list of all attributes one after another per vertex
-            // for (let vertex = 0; vertex < 3; vertex++) {
-            //     let attributeList: number[] = [];
-            //     for (let attribute of vertexAttributes) {
-            //         attributeList.concat(...attribute[face[vertex]]);
-            //     }
-            //     faceVertexAttributes[vertex] = new Float64Array(attributeList);
-            // }
+            let faceVertexAttributes: Float64Array[] = [];
+            // flatten vertex attributes into a list of all attributes one after another per vertex
+            for (let vertex = 0; vertex < 3; vertex++) {
+                let attributeList: number[] = [];
+                for (let attribute of vertexAttributes) {
+                    attributeList.concat(...attribute[face[vertex]]);
+                }
+                faceVertexAttributes[vertex] = new Float64Array(attributeList);
+            }
 
-            let faceVertexAttributesPointers = new Int32Array(new Array(0/*faceVertexAttributes.length*/));
-            // for (let vertex in faceVertexAttributes) {
-            //     faceVertexAttributesPointers[vertex] = this.float64ArrayToPointer(faceVertexAttributes[vertex]);
-            // }
+            let faceVertexAttributesPointers = new Int32Array(new Array(faceVertexAttributes.length));
+            for (let vertex in faceVertexAttributes) {
+                faceVertexAttributesPointers[vertex] = this.float64ArrayToPointer(faceVertexAttributes[vertex]);
+            }
 
-            let faceAttributesPointers = new Int32Array(new Array(0/*meshFaceAttributes.length*/));
-            // for (let attribute in meshFaceAttributes) {
-            //     faceAttributesPointers[attribute] = this.float64ArrayToPointer(meshFaceAttributes[attribute][i]);
-            // }
+            let faceAttributesPointers = new Int32Array(new Array(meshFaceAttributes.length));
+            for (let attribute in meshFaceAttributes) {
+                faceAttributesPointers[attribute] = this.float64ArrayToPointer(meshFaceAttributes[attribute][i]);
+            }
 
-            const worldVerticesPtr = 0; //this.float64ArrayToPointer(worldVertices); // always has 9 entries xyz for each vertex
+            const worldVerticesPtr = this.float64ArrayToPointer(worldVertices); // always has 9 entries xyz for each vertex
             const faceTransformedVerticesPtr = this.float64ArrayToPointer(faceTransformedVertices); // always has 9 entries xyz for each vertex
-            const faceAttributesDoublePtr = 0;//this.int32ArrayToPointer(faceAttributesPointers);
-            const faceVertexAttributesDoublePtr =  0;//this.int32ArrayToPointer(faceVertexAttributesPointers);
+            const faceAttributesDoublePtr = this.int32ArrayToPointer(faceAttributesPointers);
+            const faceVertexAttributesDoublePtr =  this.int32ArrayToPointer(faceVertexAttributesPointers);
 
             const numFaceAttributes = meshFaceAttributes.length; // we don't care about the size, that should be known by the developer in the shader so we only pass the number of attributes
-            const vertexAttributeSize = 0;//faceVertexAttributes[0].length; // 2d array alway has 3 rows so we only need column sizes
+            const vertexAttributeSize = faceVertexAttributes[0].length; // 2d array alway has 3 rows so we only need column sizes
 
             this.module!.render(
                 this.renderBufferPointer!,
@@ -134,16 +126,16 @@ export class Rasterizer {
             this.renderBuffer.values = this.pointerToUint8ClampedArray(this.renderBufferPointer, this.renderBuffer.values.length);
 
             // free memory we have allocated to avoid memory leak
-            // this.freePointer(worldVerticesPtr);
+            this.freePointer(worldVerticesPtr);
             this.freePointer(faceTransformedVerticesPtr);
-            // for (let attribute in meshFaceAttributes) {
-            //     this.freePointer(faceAttributesPointers[attribute]);
-            // }
-            // this.freePointer(faceAttributesDoublePtr);
-            // for (let vertex in faceVertexAttributes) {
-            //     this.freePointer(faceVertexAttributesPointers[vertex]);
-            // }
-            // this.freePointer(faceVertexAttributesDoublePtr);
+            for (let attribute in meshFaceAttributes) {
+                this.freePointer(faceAttributesPointers[attribute]);
+            }
+            this.freePointer(faceAttributesDoublePtr);
+            for (let vertex in faceVertexAttributes) {
+                this.freePointer(faceVertexAttributesPointers[vertex]);
+            }
+            this.freePointer(faceVertexAttributesDoublePtr);
         }
     }
 
@@ -155,13 +147,12 @@ export class Rasterizer {
         let vertices = camera.transformVertices(mesh.vertices);
         const faces = mesh.faces;
         let vertexAttributes = mesh.vertexAttributes;
-        const meshFaceAttributes: Float64Array[][] = mesh.faceAttributes;
-        const aspectRatio = this.width / this.height;
+        let meshFaceAttributes: Float64Array[][] = mesh.faceAttributes;
 
         // converts world to screen coordinates
         const worldToScreen = (vertex: Vector): Vector => {
             let res: Vector = [0, 0, 0];
-            res[0] = (vertex[0] + 1) / 2 * this.width / aspectRatio;
+            res[0] = (vertex[0] + 1) / 2 * this.width;
             res[1] = (vertex[1] + 1) / 2 * this.height;
 
             return res;
@@ -169,14 +160,15 @@ export class Rasterizer {
 
         // converts screen to world coordinates
         const screenToWorld = (vertex: Vector) => {
-            vertex[0] = vertex[0] / this.width * 2 * aspectRatio - 1;
+            vertex[0] = vertex[0] / this.width * 2- 1;
             vertex[1] = vertex[1] / this.height * 2 - 1;
         }
 
-        const clippedScene = camera.clipVertices(vertices, faces, vertexAttributes);
+        const clippedScene = camera.clipVertices(vertices, faces, vertexAttributes, meshFaceAttributes, camera.fov);
         const clippedVertices = clippedScene.vertices;
         const clippedFaces = clippedScene.faces;
         vertexAttributes = clippedScene.vertexAttributes;
+        meshFaceAttributes = clippedScene.faceAttributes;
         const transformedVertices = camera.projectVertices(clippedVertices);
 
         for (let a in vertexAttributes) {

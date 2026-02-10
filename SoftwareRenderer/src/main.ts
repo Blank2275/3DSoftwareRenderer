@@ -77,21 +77,17 @@ const green: Vector = [0.05, 1, 0.25]
 
 function texturesShader(output: Uint8ClampedArray, position: Vector, faceAttriubutes: Float64Array[], vertexAttributes: Float64Array[], globals: Float64Array[]) {
     const textureCoord = vertexAttributes[0];
-    // const normal = fromF64(faceAttriubutes[0]);
+    const normal = fromF64(faceAttriubutes[0]);
     sampleTexture(stone, 512, 512, textureCoord[0], textureCoord[1], output);
-    // output[0] = (textureCoord[0] + 1) / 4 * 255;
-    // output[1] = (textureCoord[1] + 1) / 4 * 255;
-    // output[2] = 100;
 
     const lightDirection: Vector = [0, 1, -1];
-    // let brightness = (dot(lightDirection, normal) + 1) / 2;
-    // brightness = (brightness + 0.6) / 1.6;
+    let brightness = (dot(lightDirection, normal) + 1) / 2;
+    brightness = (brightness + 0.6) / 1.6;
 
-    // colorLerp(green, red, Math.pow(brightness, 2), output);
 
-    // output[0] = brightness * 255;
-    // output[1] = brightness * 255;
-    // output[2] = brightness * 255;
+    output[0] *= brightness;
+    output[1] *= brightness;
+    output[2] *= brightness;
     // output[3] = 255;
 }
 
@@ -203,7 +199,7 @@ window.onload = async function () {
         lastRunTime: new Date().getTime(),
         fpsDisplay: document.getElementById("fps"),
         rasterizer: rasterizer,
-        camera: new Camera(100, 0.1, 1000),
+        camera: new Camera(85, width / height, 0.1, 1000),
         renderBuffer: new Buffer(width, height, 4),
         position: [0, 0, -10],
         rotation: [0, 0, 0],

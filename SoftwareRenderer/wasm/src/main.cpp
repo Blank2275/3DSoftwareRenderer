@@ -226,13 +226,13 @@ Bounds calculateBoundingBox(Vector vertexA, Vector vertexB, Vector vertexC, doub
 
 // converts world to screen coordinates
 void worldToScreen(Vector vertex, size_t width, size_t height, double aspectRatio) {
-    vertex[0] = (vertex[0] + 1) / 2 * width / aspectRatio;
+    vertex[0] = (vertex[0] + 1) / 2 * width;
     vertex[1] = (vertex[1] + 1) / 2 * height;
 }
 
 // converts screen to world coordinates
 void screenToWorld(Vector vertex, size_t width, size_t height, double aspectRatio) {
-    vertex[0] = vertex[0] / width * 2 * aspectRatio - 1;
+    vertex[0] = vertex[0] / width * 2 - 1;
     vertex[1] = vertex[1] / height * 2 - 1;
 }
 

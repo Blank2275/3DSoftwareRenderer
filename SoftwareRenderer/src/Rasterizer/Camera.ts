@@ -10,6 +10,7 @@ interface ClippedScene {
     vertices: Vector[],
     faces: number[][],
     vertexAttributes: Float64Array[][]
+    faceAttributes: Float64Array[][]
 }
 
 interface ClippedTriangle {
@@ -25,9 +26,10 @@ export class Camera {
     near: number;
     far: number;
     fov: number;
+    aspect: number;
     projectionMatrix: Matrix;
 
-    constructor(fov: number, near: number, far: number) {
+    constructor(fov: number, aspect: number, near: number, far: number) {
         this.projectionMatrix = Matrices.Zeros();
         this.rotation = [0, 0, 0];
         this.position = [0, 0, 0];
@@ -35,6 +37,7 @@ export class Camera {
         this.fov = fov;
         this.near = near;
         this.far = far;
+        this.aspect = aspect;
 
         this.recalculateProjectionMatrix();
     }
@@ -44,7 +47,7 @@ export class Camera {
     when the camera is moved or rotated, that is not handled by the projection matrix
      */
     recalculateProjectionMatrix() {
-        this.projectionMatrix = Matrices.Perspective(this.fov, this.near, this.far);
+        this.projectionMatrix = Matrices.Perspective(this.fov, this.aspect, this.near, this.far);
 
     }
 
@@ -72,51 +75,34 @@ export class Camera {
     or rotation, it assumes you have already called transformPoints
      */
     projectVertices(vertices: Vector[]): Vector[] {
-        const tempVertices: Vector[] = [];
-
-        vertices.forEach((vertex) => {
-            if (Math.abs(vertex[2]) < Number.EPSILON) vertex[2] = 0.00001; // handle edge case where we divide by 0 in perspective division
-            tempVertices.push([vertex[0], vertex[1], Math.abs(vertex[2])])
-        })
-
-        const projectedVertices = this.projectionMatrix.multiplyVectors(tempVertices);
-
-        // when one or more vertices are behind the camera they appear to blow up as they approach 0, this is not seen
-        // though when one vertex is negative not near 0, instead it will be flipped causing weird behavior
-        // here we divide them by a tiny number so they will appear properly huge (and go offscreen) while
-        // preserving slope
-        for (let i = 0; i < vertices.length; i++) {
-            if (vertices[i][2] < 0.001) {
-                projectedVertices[i][0] = vertices[i][0] / 0.000001;
-                projectedVertices[i][1] = vertices[i][1] / -0.000001;
-                // projectedVertices[i][2] = 0; // to signify that this vertex was negative for proper handling
-            }
-        }
-
+        const projectedVertices = this.projectionMatrix.multiplyVectors(vertices);
         return projectedVertices;
     }
 
-    clipVertices(vertices: Vector[], faces: number[][], vertexAttributes: Float64Array[][]): ClippedScene {
-        let invsqrt2 = 1 / Math.sqrt(2);
+    clipVertices(vertices: Vector[], faces: number[][], vertexAttributes: Float64Array[][], faceAttributes: Float64Array[][], fov: number): ClippedScene {
+        let verticalSemiFOV = fov / 2 * Math.PI / 180;
+        // https://en.wikipedia.org/wiki/Field_of_view_in_video_games
+        let horizontalSemiFOV = 2 * Math.atan(Math.tan(verticalSemiFOV) * this.aspect) / 2
+
         const planes: Plane[] = [
             { // near
                 normal: [0, 0, 1],
                 D: this.near
             },
             { // left
-                normal: [invsqrt2, 0, invsqrt2],
+                normal: [Math.cos(horizontalSemiFOV), 0, Math.sin(horizontalSemiFOV)],
                 D: 0
             },
             { // right
-                normal: [-invsqrt2, 0, invsqrt2],
+                normal: [-Math.cos(horizontalSemiFOV), 0, Math.sin(horizontalSemiFOV)],
                 D: 0
             },
             { // bottom
-                normal: [0, invsqrt2, invsqrt2],
+                normal: [0, Math.cos(verticalSemiFOV), Math.sin(verticalSemiFOV)],
                 D: 0
             },
             { // left
-                normal: [0, -invsqrt2, invsqrt2],
+                normal: [0, -Math.cos(verticalSemiFOV), Math.sin(verticalSemiFOV)],
                 D: 0
             }
         ];
@@ -134,12 +120,25 @@ export class Camera {
             }
         }
 
+        let newFaceAttributes: Float64Array[][] = [];
+        for (let attribute of faceAttributes) {
+            newFaceAttributes.push([]);
+            for (let face in faces) {
+                newFaceAttributes[newFaceAttributes.length - 1].push(this.cloneAttribute(attribute[face]))
+            }
+        }
+
         for (let plane of planes) {
             const planeClippedVertices: Vector[] = [];
             const planeClippedVertexAttributes: Float64Array[][] = new Array(vertexAttributes.length);
+            const planeClippedFaceAttributes: Float64Array[][] = new Array(faceAttributes.length);
             for (let i = 0; i < vertexAttributes.length; i++) {
                 planeClippedVertexAttributes[i] = [];
             }
+            for (let i = 0; i < faceAttributes.length; i++) {
+                planeClippedFaceAttributes[i] = [];
+            }
+            let face = 0;
             for (let i = 0; i < newVertices.length; i += 3) {
                 let faceVertices = [newVertices[i], newVertices[i + 1], newVertices[i + 2]];
                 let faceVertexAttributes: Float64Array[][] = new Array(3);
@@ -157,9 +156,18 @@ export class Camera {
                         planeClippedVertexAttributes[attribute].push(clippedTriangle.vertexAttributes[vertex][attribute]);
                     }
                 }
+
+                for (let attribute = 0; attribute < faceAttributes.length; attribute++) {
+                    for (let vertex = 0; vertex < clippedTriangle.vertexAttributes.length; vertex += 3) {
+                        planeClippedFaceAttributes[attribute].push(this.cloneAttribute(newFaceAttributes[attribute][face]));
+                    }
+                }
+
+                face++;
             }
             newVertices = planeClippedVertices;
             newVertexAttributes = planeClippedVertexAttributes;
+            newFaceAttributes = planeClippedFaceAttributes;
         }
 
         // generate new indices
@@ -171,7 +179,8 @@ export class Camera {
         return {
             vertices: newVertices,
             faces: newIndices,
-            vertexAttributes: newVertexAttributes
+            vertexAttributes: newVertexAttributes,
+            faceAttributes: newFaceAttributes
         }
     }
 
