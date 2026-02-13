@@ -35,3 +35,9 @@ dist-ssr
 *.sw?
 support/*.png
 .DS_Store
+
+renderer.d.ts
+renderer.mjs
+renderer.wasm
+SoftwareRenderer/src/WasmBindings/renderer.d.ts
+SoftwareRenderer/src/WasmBindings/renderer.mjs

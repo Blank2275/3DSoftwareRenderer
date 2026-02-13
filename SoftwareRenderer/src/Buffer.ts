@@ -3,7 +3,7 @@ export class Float64Buffer {
     width: number;
     height: number;
     dims: number;
-    values: Float64Array; // [colors][columns][rows]
+    values: Float64Array;
 
     constructor(width: number, height: number, dims: number) {
         this.width = width;

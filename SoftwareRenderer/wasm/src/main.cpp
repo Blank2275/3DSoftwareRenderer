@@ -13,11 +13,12 @@ typedef struct {
     size_t right;
 } Bounds;
 
-void worldToScreen(Vector vertex, size_t width, size_t height, double aspectRatio);
-void screenToWorld(Vector vertex, size_t width, size_t height, double aspectRatio);
-bool triangleContains(Vector p, Vector v0, Vector v1, Vector v2);
+void worldToScreen(Vector vertex, size_t width, size_t height);
+void screenToWorld(Vector vertex, size_t width, size_t height);
+double edgeFunction(Vector a, Vector b, Vector c);
 int iround(double value);
 Bounds calculateBoundingBox(Vector vertexA, Vector vertexB, Vector vertexC, double width, double height);
+void interpolateVertexAttributes(double **faceVertexAttributes, double *pixelVertexAttributes, double *ws, double z, size_t attributesLength);
 
 void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, size_t height, uintptr_t worldVerticesPtr, uintptr_t transformedVerticesPtr, uintptr_t faceAttributesDoublePtr, size_t numFaceAttributes, uintptr_t vertexAttributesDoublePtr, size_t vertexAttributesSize) {
     uint8_t *renderBuffer = reinterpret_cast<uint8_t*>(renderBufferPtr);
@@ -26,12 +27,17 @@ void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, s
     double *transformedVerticesArray = reinterpret_cast<double*>(transformedVerticesPtr);
     double **faceAttributes = reinterpret_cast<double**>(faceAttributesDoublePtr);
     double **vertexAttributes = reinterpret_cast<double**>(vertexAttributesDoublePtr);
-    double aspectRatio = static_cast<double>(width) / static_cast<double>(height);
+
+    double *pixelVertexAttributes = (double*) malloc(sizeof(double) * vertexAttributesSize);
 
     // the world position of vertices
     Vector worldA = {worldVerticesArray[0], worldVerticesArray[1], worldVerticesArray[2]};
     Vector worldB = {worldVerticesArray[3], worldVerticesArray[4], worldVerticesArray[5]};
     Vector worldC = {worldVerticesArray[6], worldVerticesArray[7], worldVerticesArray[8]};
+
+    const double inverseZA = 1 / worldA[2];
+    const double inverseZB = 1 / worldB[2];
+    const double inverseZC = 1 / worldC[2];
 
     // used for interpolating x and y positions per pixel
     Vector interpolateVertexA = {0, 0, 0};
@@ -49,16 +55,12 @@ void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, s
     Vector vertexB = {transformedVerticesArray[3], transformedVerticesArray[4], transformedVerticesArray[5]};
     Vector vertexC = {transformedVerticesArray[6], transformedVerticesArray[7], transformedVerticesArray[8]};
 
-    double inverseZA = 1 / worldA[2];
-    double inverseZB = 1 / worldB[2];
-    double inverseZC = 1 / worldC[2];
-
     Vector screenVertexA = {transformedVerticesArray[0], transformedVerticesArray[1], transformedVerticesArray[2]};
     Vector screenVertexB = {transformedVerticesArray[3], transformedVerticesArray[4], transformedVerticesArray[5]};
     Vector screenVertexC = {transformedVerticesArray[6], transformedVerticesArray[7], transformedVerticesArray[8]};
-    worldToScreen(screenVertexA, width, height, aspectRatio);
-    worldToScreen(screenVertexB, width, height, aspectRatio);
-    worldToScreen(screenVertexC, width, height, aspectRatio);
+    worldToScreen(screenVertexA, width, height);
+    worldToScreen(screenVertexB, width, height);
+    worldToScreen(screenVertexC, width, height);
 
     // top, bottom, left, right
     Bounds bounds = calculateBoundingBox(screenVertexA, screenVertexB, screenVertexC, width, height);
@@ -113,6 +115,8 @@ void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, s
     int CY2 = C2 + DX23 * (miny << 4) - DY23 * (minx << 4);
     int CY3 = C3 + DX31 * (miny << 4) - DY31 * (minx << 4);
 
+    double area = abs(edgeFunction(vertexA, vertexB, vertexC));
+
     for (int y = miny; y < maxy; y++) {
         if (y < 0 || y >= height) {
             CY1 += FDX12;
@@ -125,9 +129,6 @@ void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, s
         int CX2 = CY2;
         int CX3 = CY3;
         for (int x = minx; x < maxx; x++) {
-            Vector worldCoords = {static_cast<double>(x), static_cast<double>(y), 0};
-            screenToWorld(worldCoords, width, height, aspectRatio);
-
             if (x < 0 || x >= width) {
                 CX1 -= FDY12;
                 CX2 -= FDY23;
@@ -138,10 +139,29 @@ void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, s
             if(CX1 > 0 && CX2 > 0 && CX3 > 0)
             {
                 size_t renderBufferIndex = y * width * 4 + x * 4;
-                renderBuffer[renderBufferIndex + 0] = 30;
-                renderBuffer[renderBufferIndex + 1] = 100;
-                renderBuffer[renderBufferIndex + 2] = 255;
-                renderBuffer[renderBufferIndex + 3] = 255;
+                size_t depthBufferIndex = y * width + x;
+
+                Vector worldCoords = {static_cast<double>(x), static_cast<double>(y), 0};
+                screenToWorld(worldCoords, width, height);
+
+                const double wa = abs(edgeFunction(vertexB, vertexC, worldCoords)) / area;
+                const double wb = abs(edgeFunction(vertexC, vertexA, worldCoords)) / area;
+                const double wc = abs(edgeFunction(vertexA, vertexB, worldCoords)) / area;
+
+                const double z = 1 / (wa * inverseZA + wb * inverseZB + wc * inverseZC);
+                double depth = depthBuffer[depthBufferIndex];
+
+                double ws[3] = {wa, wb, wc};
+                interpolateVertexAttributes(vertexAttributes, pixelVertexAttributes, ws, z, vertexAttributesSize);
+
+                if (z < depth) {
+                    depthBuffer[depthBufferIndex] = z;
+
+                    renderBuffer[renderBufferIndex + 0] = 0;
+                    renderBuffer[renderBufferIndex + 1] = (pixelVertexAttributes[0] + 2) / 4 * 255;
+                    renderBuffer[renderBufferIndex + 2] = (pixelVertexAttributes[1] + 2) / 4 * 255;
+                    renderBuffer[renderBufferIndex + 3] = 255;
+                }
             }
 
             CX1 -= FDY12;
@@ -153,16 +173,22 @@ void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, s
         CY2 += FDX23;
         CY3 += FDX31;
     }
+
+    free(pixelVertexAttributes);
 }
 
-bool triangleContains(Vector p, Vector v0, Vector v1, Vector v2) {
-    double denominator = ((v1[1] - v2[1]) * (v0[0] - v2[0]) + (v2[0] - v1[0]) * (v0[1] - v2[1]));
+void interpolateVertexAttributes(double **faceVertexAttributes, double *pixelVertexAttributes, double *ws, double z, size_t attributesLength) {
+    for (size_t element = 0; element < attributesLength; element++) {
+        pixelVertexAttributes[element] = 0;
+        for (size_t vertex = 0; vertex < 3; vertex++) {
+            pixelVertexAttributes[element] += faceVertexAttributes[vertex][element] * ws[vertex];
+        }
+        pixelVertexAttributes[element] *= z;
+    }
+}
 
-    double a = ((v1[1] - v2[1]) * (p[0] - v2[0]) + (v2[0] - v1[0]) * (p[1] - v2[1])) / denominator;
-    double b = ((v2[1] - v0[1]) * (p[0] - v2[0]) + (v0[0] - v2[0]) * (p[1] - v2[1])) / denominator;
-    double c = 1 - a - b;
-
-    return a >= 0 && a <= 1 && b >= 0 && b <= 1 && c >= 0 && c <= 1;
+double edgeFunction(Vector a, Vector b, Vector c) {
+    return (c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0]);
 }
 
 int iround(double value) {
@@ -225,13 +251,13 @@ Bounds calculateBoundingBox(Vector vertexA, Vector vertexB, Vector vertexC, doub
 }
 
 // converts world to screen coordinates
-void worldToScreen(Vector vertex, size_t width, size_t height, double aspectRatio) {
+void worldToScreen(Vector vertex, size_t width, size_t height) {
     vertex[0] = (vertex[0] + 1) / 2 * width;
     vertex[1] = (vertex[1] + 1) / 2 * height;
 }
 
 // converts screen to world coordinates
-void screenToWorld(Vector vertex, size_t width, size_t height, double aspectRatio) {
+void screenToWorld(Vector vertex, size_t width, size_t height) {
     vertex[0] = vertex[0] / width * 2 - 1;
     vertex[1] = vertex[1] / height * 2 - 1;
 }

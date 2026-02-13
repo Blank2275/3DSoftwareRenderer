@@ -54,8 +54,6 @@ export class Rasterizer {
             return; // nothing to render
         }
 
-        console.log(clippedScene)
-
         for (let a in vertexAttributes) {
             for (let v in clippedVertices) {
                 const vertex = clippedVertices[v]
@@ -71,9 +69,9 @@ export class Rasterizer {
             const face = clippedFaces[i];
 
             const worldVertices: Float64Array = new Float64Array([
-                ...transformedVertices[face[0]],
-                ...transformedVertices[face[1]],
-                ...transformedVertices[face[2]],
+                ...clippedVertices[face[0]],
+                ...clippedVertices[face[1]],
+                ...clippedVertices[face[2]],
             ]);
 
             const faceTransformedVertices = new Float64Array([
@@ -82,17 +80,17 @@ export class Rasterizer {
                 ...transformedVertices[face[2]],
             ])
 
-            let faceVertexAttributes: Float64Array[] = [];
+            let faceVertexAttributes: Float64Array[] = new Array(3);
             // flatten vertex attributes into a list of all attributes one after another per vertex
             for (let vertex = 0; vertex < 3; vertex++) {
                 let attributeList: number[] = [];
                 for (let attribute of vertexAttributes) {
-                    attributeList.concat(...attribute[face[vertex]]);
+                    attributeList.push(...attribute[face[vertex]]);
                 }
                 faceVertexAttributes[vertex] = new Float64Array(attributeList);
             }
 
-            let faceVertexAttributesPointers = new Int32Array(new Array(faceVertexAttributes.length));
+            let faceVertexAttributesPointers = new Int32Array(3);
             for (let vertex in faceVertexAttributes) {
                 faceVertexAttributesPointers[vertex] = this.float64ArrayToPointer(faceVertexAttributes[vertex]);
             }
@@ -124,6 +122,7 @@ export class Rasterizer {
             )
 
             this.renderBuffer.values = this.pointerToUint8ClampedArray(this.renderBufferPointer, this.renderBuffer.values.length);
+            this.depthBuffer.values = this.pointerToFloat64Array(this.depthBufferPointer!, this.depthBuffer.values.length);
 
             // free memory we have allocated to avoid memory leak
             this.freePointer(worldVerticesPtr);
@@ -160,7 +159,7 @@ export class Rasterizer {
 
         // converts screen to world coordinates
         const screenToWorld = (vertex: Vector) => {
-            vertex[0] = vertex[0] / this.width * 2- 1;
+            vertex[0] = vertex[0] / this.width * 2 - 1;
             vertex[1] = vertex[1] / this.height * 2 - 1;
         }
 
@@ -384,13 +383,19 @@ export class Rasterizer {
     Clears the render buffer to 0s and the depth buffer to -1
      */
     clear() {
-        this.renderBuffer.clear(0.25)
-        this.depthBuffer.clear(Number.MAX_VALUE)
+        this.renderBuffer.clear(30)
+        this.depthBuffer.clear(255)
     }
 
     float64ArrayToPointer(arr: Float64Array) {
         const ptr = this.module!._malloc(arr.length * arr.BYTES_PER_ELEMENT);
         this.module!.HEAPF64.set(arr, ptr / 8);
+        return ptr;
+    }
+
+    uint8ArrayToPointer(arr: Uint8ClampedArray) {
+        const ptr = this.module!._malloc(arr.length * arr.BYTES_PER_ELEMENT);
+        this.module!.HEAPU8.set(arr, ptr / 8);
         return ptr;
     }
 
@@ -416,7 +421,7 @@ export class Rasterizer {
     } 
 
     createBufferPointers() {
-        this.renderBufferPointer = this.float64ArrayToPointer(this.renderBuffer.values);
+        this.renderBufferPointer = this.uint8ArrayToPointer(this.renderBuffer.values);
         this.depthBufferPointer = this.float64ArrayToPointer(this.depthBuffer.values);
     }
 

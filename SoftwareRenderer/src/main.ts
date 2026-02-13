@@ -246,8 +246,8 @@ window.onload = async function () {
             pyramidMesh.addVertexAttribute(vertexTextureCoords);
             pyramidMesh.translate(-1, -2, 5)
 
-            this.rasterizer.render(pyramidMesh, this.camera, texturesShader);
-            // this.rasterizer.renderWasm(pyramidMesh, this.camera);
+            // this.rasterizer.render(pyramidMesh, this.camera, texturesShader);
+            this.rasterizer.renderWasm(pyramidMesh, this.camera);
             renderBuffer(this.rasterizer.renderBuffer, this.ctx);
 
 
