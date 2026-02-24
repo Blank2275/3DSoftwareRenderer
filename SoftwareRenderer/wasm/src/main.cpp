@@ -1,10 +1,12 @@
 #include <iostream>
 #include <algorithm>
 #include <emscripten/bind.h>
+#include <cmath>
 
 using namespace emscripten;
 
 typedef double Vector[3];
+typedef void (*shader)(uint8_t *color, double *position, double *faceAttributes, double *vertexAttributes);
 
 typedef struct {
     size_t top;
@@ -19,16 +21,23 @@ double edgeFunction(Vector a, Vector b, Vector c);
 int iround(double value);
 Bounds calculateBoundingBox(Vector vertexA, Vector vertexB, Vector vertexC, double width, double height);
 void interpolateVertexAttributes(double **faceVertexAttributes, double *pixelVertexAttributes, double *ws, double z, size_t attributesLength);
+void testShader(uint8_t *color, double *position, double *faceAttributes, double *vertexAttributes);
 
-void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, size_t height, uintptr_t worldVerticesPtr, uintptr_t transformedVerticesPtr, uintptr_t faceAttributesDoublePtr, size_t numFaceAttributes, uintptr_t vertexAttributesDoublePtr, size_t vertexAttributesSize) {
+std::map<std::string, shader> shaderMap = {
+    {"test", &testShader},
+};
+
+void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, size_t height, uintptr_t worldVerticesPtr, uintptr_t transformedVerticesPtr, uintptr_t faceAttributesDoublePtr, size_t numFaceAttributes, uintptr_t vertexAttributesDoublePtr, size_t vertexAttributesSize, std::string shaderName) {
     uint8_t *renderBuffer = reinterpret_cast<uint8_t*>(renderBufferPtr);
     double *depthBuffer = reinterpret_cast<double*>(depthBufferPtr);
     double *worldVerticesArray = reinterpret_cast<double*>(worldVerticesPtr);
     double *transformedVerticesArray = reinterpret_cast<double*>(transformedVerticesPtr);
-    double **faceAttributes = reinterpret_cast<double**>(faceAttributesDoublePtr);
+    double *faceAttributes = reinterpret_cast<double*>(faceAttributesDoublePtr);
     double **vertexAttributes = reinterpret_cast<double**>(vertexAttributesDoublePtr);
 
     double *pixelVertexAttributes = (double*) malloc(sizeof(double) * vertexAttributesSize);
+
+    shader shader = shaderMap[shaderName];
 
     // the world position of vertices
     Vector worldA = {worldVerticesArray[0], worldVerticesArray[1], worldVerticesArray[2]};
@@ -157,10 +166,14 @@ void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, s
                 if (z < depth) {
                     depthBuffer[depthBufferIndex] = z;
 
-                    renderBuffer[renderBufferIndex + 0] = 0;
-                    renderBuffer[renderBufferIndex + 1] = (pixelVertexAttributes[0] + 2) / 4 * 255;
-                    renderBuffer[renderBufferIndex + 2] = (pixelVertexAttributes[1] + 2) / 4 * 255;
-                    renderBuffer[renderBufferIndex + 3] = 255;
+                    // calculate x and y of pixel
+                    double worldX = (interpolateVertexA[0] * wa + interpolateVertexB[0] * wb + interpolateVertexC[0] * wc) * z;
+                    double worldY = (interpolateVertexA[1] * wa + interpolateVertexB[1] * wb + interpolateVertexC[1] * wc) * z;
+                    double worldCoords[3] = {worldX, worldY, z};
+
+                    uint8_t *color = renderBuffer + renderBufferIndex;
+                    color[3] = 255; // full alpha by default
+                    (*shader)(color, worldCoords, faceAttributes, pixelVertexAttributes);
                 }
             }
 
@@ -262,9 +275,15 @@ void screenToWorld(Vector vertex, size_t width, size_t height) {
     vertex[1] = vertex[1] / height * 2 - 1;
 }
 
-int main() {
-    std::cout<<"Hello Wasm!"<<std::endl;
-    return 0;
+void testShader(uint8_t *color, double *position, double *faceAttributes, double *vertexAttributes) {
+    double textureX = vertexAttributes[0] + 1 / 2;
+    double textureY = vertexAttributes[1] + 1 / 2;
+    bool checkerboardX = abs(std::fmod(textureX, 1)) > 0.5;
+    bool checkerboardY = abs(std::fmod(textureY, 1)) > 0.5;
+    bool checkerboard = checkerboardY ^ checkerboardX;
+    color[0] = checkerboard ? 30 : 230;
+    color[1] = checkerboard ? 90 : 245;
+    color[2] = checkerboard ? 180 : 250;
 }
 
 EMSCRIPTEN_BINDINGS(render_module) {
