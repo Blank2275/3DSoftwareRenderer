@@ -1,5 +1,14 @@
 # 3D Software Renderer
 
+## Running
+
+```
+git clone https://github.com/Blank2275/3DSoftwareRenderer/
+cd 3DSoftwareRenderer/SoftwareRenderer
+bun i
+bun dev
+```
+
 ## What is it?
 It is my attempt at replicating (at least part of) the 3d graphics pipeline purely on the cpu, it is not meant for practical use, it is far too slow, it is primarily to help me learn and for fun.
 
@@ -12,7 +21,9 @@ It is my attempt at replicating (at least part of) the 3d graphics pipeline pure
 - The current version of Rasterizer class triangleContains is written by claude
   
 ## Future
-This project is not complete, I want to load some interesting models and clean up the code, possibly experiment with web workers for rendering.
+This project is not complete, I want to load some interesting models and clean up the code, A branch is in development with an alternate renderer written in webassembly.
 
 ## Images
+Basic Triangle
 <img width="1709" alt="Screenshot 2025-01-26 at 11 15 57 AM" src="https://github.com/user-attachments/assets/52ca7f14-9235-47c6-9105-8bde3b624736" />
+<img width="1470" height="956" alt="Screenshot 2026-02-24 at 12 40 18 PM" src="https://github.com/user-attachments/assets/693d307a-1d31-49dc-81c4-e262861f1f86" />
