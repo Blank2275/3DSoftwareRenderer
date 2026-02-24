@@ -232,13 +232,13 @@ window.onload = async function () {
 
             const vertexTextureCoords: Float64Array[] = [
                 new Float64Array([0, 0]),
-                new Float64Array([0.5, 0]),
-                new Float64Array([0.5, 0.5]),
-                new Float64Array([0, 0.5]),
-                new Float64Array([0.5, -1]), // back
-                new Float64Array([-1, 0.5]), // right
-                new Float64Array([0.5, 2]), // front
-                new Float64Array([2, 0.5]), // left
+                new Float64Array([2, 0]),
+                new Float64Array([2, 2]),
+                new Float64Array([0, 2]),
+                new Float64Array([1, 2]), // back
+                new Float64Array([0, 1]), // right
+                new Float64Array([1, 0]), // front
+                new Float64Array([2, 1]), // left
             ]
 
             const pyramidMesh = new Mesh(pyramidVertices, pyramidFaces);

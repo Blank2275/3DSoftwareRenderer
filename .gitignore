@@ -3,11 +3,6 @@ support/stone.png
 .DS_Store
 c_cpp_properties.json
 temp.ts
-WasmBindings
-SoftwareRenderer/src/WasmBindings/*
-SoftwareRenderer/src/WasmBindings/renderer.d.ts
-SoftwareRenderer/src/WasmBindings/renderer.mjs
-SoftwareRenderer/src/WasmBindings/renderer.wasm
 
 # Logs
 logs
@@ -35,9 +30,3 @@ dist-ssr
 *.sw?
 support/*.png
 .DS_Store
-
-renderer.d.ts
-renderer.mjs
-renderer.wasm
-SoftwareRenderer/src/WasmBindings/renderer.d.ts
-SoftwareRenderer/src/WasmBindings/renderer.mjs

@@ -14,7 +14,7 @@ export class Rasterizer {
     depthBuffer: Float64Buffer
     renderBufferPointer: number | null = null;
     depthBufferPointer: number | null = null;
-    module: EmbindModule | null
+    module: MainModule | null
 
     constructor(width: number, height: number) {
         this.width = width
@@ -29,12 +29,10 @@ export class Rasterizer {
     renderWasm(mesh: Mesh, camera: Camera) {
         if (!this.module) {
             throw new Error("You must call initializeWasm before renderWasm");
-            return;
         }
 
         if (!this.renderBufferPointer) {
             throw new Error("You must call createBufferPointers before renderWasm");
-            return;
         }
 
         // same setup as normal render
@@ -95,19 +93,22 @@ export class Rasterizer {
                 faceVertexAttributesPointers[vertex] = this.float64ArrayToPointer(faceVertexAttributes[vertex]);
             }
 
-            let faceAttributesPointers = new Int32Array(new Array(meshFaceAttributes.length));
+            let faceAttributesForFace: Float64Array;
+            let elements = []
             for (let attribute in meshFaceAttributes) {
-                faceAttributesPointers[attribute] = this.float64ArrayToPointer(meshFaceAttributes[attribute][i]);
+                elements.push(...meshFaceAttributes[attribute][i])
             }
+            faceAttributesForFace = new Float64Array(elements);
 
             const worldVerticesPtr = this.float64ArrayToPointer(worldVertices); // always has 9 entries xyz for each vertex
             const faceTransformedVerticesPtr = this.float64ArrayToPointer(faceTransformedVertices); // always has 9 entries xyz for each vertex
-            const faceAttributesDoublePtr = this.int32ArrayToPointer(faceAttributesPointers);
+            const faceAttributesPtr = this.float64ArrayToPointer(faceAttributesForFace);
             const faceVertexAttributesDoublePtr =  this.int32ArrayToPointer(faceVertexAttributesPointers);
 
             const numFaceAttributes = meshFaceAttributes.length; // we don't care about the size, that should be known by the developer in the shader so we only pass the number of attributes
             const vertexAttributeSize = faceVertexAttributes[0].length; // 2d array alway has 3 rows so we only need column sizes
 
+            let shaderName = "test";
             this.module!.render(
                 this.renderBufferPointer!,
                 this.depthBufferPointer!, 
@@ -115,10 +116,11 @@ export class Rasterizer {
                 this.height,
                 worldVerticesPtr,
                 faceTransformedVerticesPtr,
-                faceAttributesDoublePtr,
+                faceAttributesPtr,
                 numFaceAttributes,
                 faceVertexAttributesDoublePtr,
                 vertexAttributeSize,
+                shaderName
             )
 
             this.renderBuffer.values = this.pointerToUint8ClampedArray(this.renderBufferPointer, this.renderBuffer.values.length);
@@ -127,10 +129,7 @@ export class Rasterizer {
             // free memory we have allocated to avoid memory leak
             this.freePointer(worldVerticesPtr);
             this.freePointer(faceTransformedVerticesPtr);
-            for (let attribute in meshFaceAttributes) {
-                this.freePointer(faceAttributesPointers[attribute]);
-            }
-            this.freePointer(faceAttributesDoublePtr);
+            this.freePointer(faceAttributesPtr);
             for (let vertex in faceVertexAttributes) {
                 this.freePointer(faceVertexAttributesPointers[vertex]);
             }
@@ -395,7 +394,7 @@ export class Rasterizer {
 
     uint8ArrayToPointer(arr: Uint8ClampedArray) {
         const ptr = this.module!._malloc(arr.length * arr.BYTES_PER_ELEMENT);
-        this.module!.HEAPU8.set(arr, ptr / 8);
+        this.module!.HEAPU8.set(arr, ptr);
         return ptr;
     }
 
@@ -431,19 +430,19 @@ export class Rasterizer {
     }
 
     initializeWasm(): Promise<void> {
-        const moduleArgs = {
-            onRuntimeInitialized: () => {
-                console.log('Wasm Module loaded');
-            },
-            print: (text: any) => {
-                console.log('c++: ' + text);
-            },
-            // Add other configurations like canvas, wasmBinary, etc. as needed
-            // canvas: document.getElementById('my-canvas')
-        };
-
         return new Promise((resolve, reject) => {
-            MainModuleFactory(moduleArgs).then((Module) => {
+            const moduleArgs = {
+                onRuntimeInitialized: () => {
+                    console.log("wasm initialized")
+                },
+                print: (text: any) => {
+                    console.log('c++: ' + text);
+                },
+                // Add other configurations like canvas, wasmBinary, etc. as needed
+                // canvas: document.getElementById('my-canvas')
+            };
+
+            MainModuleFactory(moduleArgs).then((Module: any) => {
                 this.module = Module;
                 resolve();
             });

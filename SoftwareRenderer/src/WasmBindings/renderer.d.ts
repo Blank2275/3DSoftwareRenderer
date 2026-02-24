@@ -15,14 +15,24 @@ declare namespace RuntimeExports {
     function cwrap(ident: any, returnType?: string | undefined, argTypes?: any[] | undefined, opts?: any | undefined): any;
     let HEAP8: any;
     let HEAPU8: any;
+    let HEAP32: any;
+    let HEAPF64: any;
+    /**
+     * @param {number} ptr
+     * @param {string} type
+     */
+    function getValue(ptr: number, type?: string): any;
+    let wasmMemory: any;
 }
 interface WasmModule {
-  _main(_0: number, _1: number): number;
+  _malloc(_0: number): number;
+  _free(_0: number): void;
 }
 
+type EmbindString = ArrayBuffer|Uint8Array|Uint8ClampedArray|Int8Array|string;
 interface EmbindModule {
-  helloWorld(): void;
-  test(_0: any): void;
+  render(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: EmbindString): void;
+  clearRenderBuffer(_0: number, _1: number, _2: number, _3: number): void;
 }
 
 export type MainModule = WasmModule & typeof RuntimeExports & EmbindModule;
