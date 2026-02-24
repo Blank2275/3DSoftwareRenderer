@@ -26,4 +26,5 @@ This project is not complete, I want to load some interesting models and clean u
 ## Images
 Basic Triangle
 <img width="1709" alt="Screenshot 2025-01-26 at 11 15 57 AM" src="https://github.com/user-attachments/assets/52ca7f14-9235-47c6-9105-8bde3b624736" />
+Cube with point lighting
 <img width="1470" height="956" alt="Screenshot 2026-02-24 at 12 40 18 PM" src="https://github.com/user-attachments/assets/693d307a-1d31-49dc-81c4-e262861f1f86" />
