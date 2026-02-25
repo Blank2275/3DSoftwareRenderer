@@ -1,7 +1,5 @@
-#include <iostream>
-#include <algorithm>
-#include <emscripten/bind.h>
-#include <cmath>
+#include "main.h"
+#include "shaders.h"
 
 using namespace emscripten;
 
@@ -21,11 +19,14 @@ double edgeFunction(Vector a, Vector b, Vector c);
 int iround(double value);
 Bounds calculateBoundingBox(Vector vertexA, Vector vertexB, Vector vertexC, double width, double height);
 void interpolateVertexAttributes(double **faceVertexAttributes, double *pixelVertexAttributes, double *ws, double z, size_t attributesLength);
-void testShader(uint8_t *color, double *position, double *faceAttributes, double *vertexAttributes);
 
 std::map<std::string, shader> shaderMap = {
-    {"test", &testShader},
+    { "test", &testShader }
 };
+
+void registerShader(std::string shaderName, shader shaderFunc) {
+    shaderMap[shaderName] = shaderFunc;
+}
 
 void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, size_t height, uintptr_t worldVerticesPtr, uintptr_t transformedVerticesPtr, uintptr_t faceAttributesDoublePtr, size_t numFaceAttributes, uintptr_t vertexAttributesDoublePtr, size_t vertexAttributesSize, std::string shaderName) {
     uint8_t *renderBuffer = reinterpret_cast<uint8_t*>(renderBufferPtr);
@@ -208,6 +209,7 @@ int iround(double value) {
     return static_cast<int>(value + 0.5f - (value < 0.0)); // simple rounding
 }
 
+EMSCRIPTEN_KEEPALIVE
 void clearRenderBuffer(uintptr_t renderBufferPtr, double color, size_t width, size_t height) {
     double *renderBuffer = reinterpret_cast<double*>(renderBufferPtr);
     size_t i = width * height * 4;
@@ -275,15 +277,8 @@ void screenToWorld(Vector vertex, size_t width, size_t height) {
     vertex[1] = vertex[1] / height * 2 - 1;
 }
 
-void testShader(uint8_t *color, double *position, double *faceAttributes, double *vertexAttributes) {
-    double textureX = vertexAttributes[0] + 1 / 2;
-    double textureY = vertexAttributes[1] + 1 / 2;
-    bool checkerboardX = abs(std::fmod(textureX, 1)) > 0.5;
-    bool checkerboardY = abs(std::fmod(textureY, 1)) > 0.5;
-    bool checkerboard = checkerboardY ^ checkerboardX;
-    color[0] = checkerboard ? 30 : 230;
-    color[1] = checkerboard ? 90 : 245;
-    color[2] = checkerboard ? 180 : 250;
+int main() {
+
 }
 
 EMSCRIPTEN_BINDINGS(render_module) {

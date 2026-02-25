@@ -6,13 +6,13 @@ declare namespace RuntimeExports {
      * @param {Array=} args
      * @param {Object=} opts
      */
-    function ccall(ident: any, returnType?: (string | null) | undefined, argTypes?: any[] | undefined, args?: any[] | undefined, opts?: any | undefined): any;
+    function ccall(ident: any, returnType?: string, argTypes?: any[], args?: any[], opts?: any): any;
     /**
      * @param {string=} returnType
      * @param {Array=} argTypes
      * @param {Object=} opts
      */
-    function cwrap(ident: any, returnType?: string | undefined, argTypes?: any[] | undefined, opts?: any | undefined): any;
+    function cwrap(ident: any, returnType?: string, argTypes?: any[], opts?: any): any;
     let HEAP8: any;
     let HEAPU8: any;
     let HEAP32: any;
@@ -27,12 +27,13 @@ declare namespace RuntimeExports {
 interface WasmModule {
   _malloc(_0: number): number;
   _free(_0: number): void;
+  __Z17clearRenderBuffermdmm(_0: number, _1: number, _2: number, _3: number): void;
 }
 
 type EmbindString = ArrayBuffer|Uint8Array|Uint8ClampedArray|Int8Array|string;
 interface EmbindModule {
-  render(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: EmbindString): void;
   clearRenderBuffer(_0: number, _1: number, _2: number, _3: number): void;
+  render(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: EmbindString): void;
 }
 
 export type MainModule = WasmModule & typeof RuntimeExports & EmbindModule;
