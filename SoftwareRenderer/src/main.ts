@@ -242,7 +242,7 @@ window.onload = async function () {
             ]
 
             const pyramidMesh = new Mesh(pyramidVertices, pyramidFaces);
-            pyramidMesh.addFaceAttribute(pyramidMesh.calculateNormals(this.camera, false));
+            pyramidMesh.addFaceAttribute(pyramidMesh.calculateNormals(false));
             pyramidMesh.addVertexAttribute(vertexTextureCoords);
             pyramidMesh.translate(-1, -2, 5)
 

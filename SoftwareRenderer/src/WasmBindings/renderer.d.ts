@@ -33,7 +33,7 @@ interface WasmModule {
 type EmbindString = ArrayBuffer|Uint8Array|Uint8ClampedArray|Int8Array|string;
 interface EmbindModule {
   clearRenderBuffer(_0: number, _1: number, _2: number, _3: number): void;
-  render(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: EmbindString): void;
+  render(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: number, _11: EmbindString): void;
 }
 
 export type MainModule = WasmModule & typeof RuntimeExports & EmbindModule;

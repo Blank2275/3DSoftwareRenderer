@@ -26,7 +26,7 @@ export class Rasterizer {
         this.module = null // only gets a value when webassembly is initialized
     }
 
-    renderWasm(mesh: Mesh, camera: Camera) {
+    renderWasm(mesh: Mesh, camera: Camera, globals: Float64Array[]) {
         if (!this.module) {
             throw new Error("You must call initializeWasm before renderWasm");
         }
@@ -93,6 +93,12 @@ export class Rasterizer {
                 faceVertexAttributesPointers[vertex] = this.float64ArrayToPointer(faceVertexAttributes[vertex]);
             }
 
+            // let elements: number[] = [];
+            // for (let global of globals) {
+            //     elements.push(...global);
+            // }
+            // let globalAttributesPointer = this.float64ArrayToPointer(new Float64Array(elements));
+
             let faceAttributesForFace: Float64Array;
             let elements = []
             for (let attribute in meshFaceAttributes) {
@@ -120,6 +126,7 @@ export class Rasterizer {
                 numFaceAttributes,
                 faceVertexAttributesDoublePtr,
                 vertexAttributeSize,
+                0,
                 shaderName
             )
 
@@ -133,6 +140,7 @@ export class Rasterizer {
             for (let vertex in faceVertexAttributes) {
                 this.freePointer(faceVertexAttributesPointers[vertex]);
             }
+            // this.freePointer(globalAttributesPointer);
             this.freePointer(faceVertexAttributesDoublePtr);
         }
     }

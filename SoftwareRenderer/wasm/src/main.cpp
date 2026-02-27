@@ -4,7 +4,7 @@
 using namespace emscripten;
 
 typedef double Vector[3];
-typedef void (*shader)(uint8_t *color, double *position, double *faceAttributes, double *vertexAttributes);
+typedef void (*shader)(uint8_t *color, double *position, double *faceAttributes, double *vertexAttributes, double *shader);
 
 typedef struct {
     size_t top;
@@ -28,13 +28,14 @@ void registerShader(std::string shaderName, shader shaderFunc) {
     shaderMap[shaderName] = shaderFunc;
 }
 
-void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, size_t height, uintptr_t worldVerticesPtr, uintptr_t transformedVerticesPtr, uintptr_t faceAttributesDoublePtr, size_t numFaceAttributes, uintptr_t vertexAttributesDoublePtr, size_t vertexAttributesSize, std::string shaderName) {
+void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, size_t height, uintptr_t worldVerticesPtr, uintptr_t transformedVerticesPtr, uintptr_t faceAttributesDoublePtr, size_t numFaceAttributes, uintptr_t vertexAttributesDoublePtr, size_t vertexAttributesSize, uintptr_t globalsPtr, std::string shaderName) {
     uint8_t *renderBuffer = reinterpret_cast<uint8_t*>(renderBufferPtr);
     double *depthBuffer = reinterpret_cast<double*>(depthBufferPtr);
     double *worldVerticesArray = reinterpret_cast<double*>(worldVerticesPtr);
     double *transformedVerticesArray = reinterpret_cast<double*>(transformedVerticesPtr);
     double *faceAttributes = reinterpret_cast<double*>(faceAttributesDoublePtr);
     double **vertexAttributes = reinterpret_cast<double**>(vertexAttributesDoublePtr);
+    double *globals = reinterpret_cast<double*>(globalsPtr);
 
     double *pixelVertexAttributes = (double*) malloc(sizeof(double) * vertexAttributesSize);
 
@@ -174,7 +175,7 @@ void render(uintptr_t renderBufferPtr, uintptr_t depthBufferPtr, size_t width, s
 
                     uint8_t *color = renderBuffer + renderBufferIndex;
                     color[3] = 255; // full alpha by default
-                    (*shader)(color, worldCoords, faceAttributes, pixelVertexAttributes);
+                    (*shader)(color, worldCoords, faceAttributes, pixelVertexAttributes, globals);
                 }
             }
 
